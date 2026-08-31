@@ -34,7 +34,7 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
 
       <div class="space-y-3 mb-4">
         <div *ngFor="let choice of question.choices; let i = index"
-          class="p-4 rounded-xl border-3 flex flex-col gap-2 transition-all w-full"
+          class="p-4 rounded-xl border-3 flex flex-col gap-2.5 transition-all w-full"
           [class.border-emerald-600]="isChoiceCorrect(choice.id)"
           [class.bg-emerald-50]="isChoiceCorrect(choice.id)"
           [class.border-rose-500]="isUserSelected(choice.id) && !isChoiceCorrect(choice.id)"
@@ -52,22 +52,22 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
             </span>
           </div>
 
-          <!-- Choice Status Label Underneath Text -->
-          <div *ngIf="isChoiceCorrect(choice.id) || isUserSelected(choice.id)" class="pt-1.5 border-t border-gray-200/60 w-full mt-1">
-            <div *ngIf="isChoiceCorrect(choice.id) && isUserSelected(choice.id)" class="text-emerald-700 font-bold text-xs flex items-center gap-1.5 bg-emerald-100/90 px-3 py-1 rounded-lg border border-emerald-300 w-fit">
+          <!-- Choice Status Sub-Banner Placed UNDERNEATH Text -->
+          <div *ngIf="isChoiceCorrect(choice.id) || isUserSelected(choice.id)" class="w-full pt-2 border-t border-gray-200/80 mt-1 flex flex-col gap-1">
+            <div *ngIf="isChoiceCorrect(choice.id) && isUserSelected(choice.id)" class="text-emerald-800 font-bold text-xs bg-emerald-100/90 border border-emerald-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5 w-full">
               <span>✓</span> 
-              <span class="underline underline-offset-2">{{ 'review.correctAnswer' | translate }}</span>
+              <span class="underline underline-offset-4 decoration-2 decoration-emerald-600">{{ 'review.correctAnswer' | translate }}</span>
               <span>({{ 'review.yourAnswer' | translate }})</span>
             </div>
 
-            <div *ngIf="isChoiceCorrect(choice.id) && !isUserSelected(choice.id)" class="text-emerald-700 font-bold text-xs flex items-center gap-1.5 bg-emerald-100/90 px-3 py-1 rounded-lg border border-emerald-300 w-fit">
+            <div *ngIf="isChoiceCorrect(choice.id) && !isUserSelected(choice.id)" class="text-emerald-800 font-bold text-xs bg-emerald-100/90 border border-emerald-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5 w-full">
               <span>✓</span> 
-              <span class="underline underline-offset-2">{{ 'review.correctAnswer' | translate }}</span>
+              <span class="underline underline-offset-4 decoration-2 decoration-emerald-600">{{ 'review.correctAnswer' | translate }}</span>
             </div>
 
-            <div *ngIf="isUserSelected(choice.id) && !isChoiceCorrect(choice.id)" class="text-rose-700 font-bold text-xs flex items-center gap-1.5 bg-rose-100/90 px-3 py-1 rounded-lg border border-rose-300 w-fit">
+            <div *ngIf="isUserSelected(choice.id) && !isChoiceCorrect(choice.id)" class="text-rose-800 font-bold text-xs bg-rose-100/90 border border-rose-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5 w-full">
               <span>✗</span> 
-              <span class="underline underline-offset-2">{{ 'review.yourAnswer' | translate }}</span>
+              <span class="underline underline-offset-4 decoration-2 decoration-rose-600">{{ 'review.yourAnswer' | translate }}</span>
               <span>({{ 'review.incorrect' | translate }})</span>
             </div>
           </div>

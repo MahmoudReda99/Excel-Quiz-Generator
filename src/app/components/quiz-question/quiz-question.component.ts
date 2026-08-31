@@ -17,10 +17,10 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         </span>
         
         <span *ngIf="shouldShowAnswerDetails" class="text-sm font-semibold">
-          <span *ngIf="isUserAnswerCorrect" class="text-emerald-600 flex items-center gap-1 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+          <span *ngIf="isUserAnswerCorrect" class="text-emerald-600 flex items-center gap-1 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 font-bold">
             ✓ {{ 'review.correct' | translate }}
           </span>
-          <span *ngIf="!isUserAnswerCorrect && question.userAnswer" class="text-rose-600 flex items-center gap-1 bg-rose-50 px-3 py-1 rounded-full border border-rose-200">
+          <span *ngIf="!isUserAnswerCorrect && question.userAnswer" class="text-rose-600 flex items-center gap-1 bg-rose-50 px-3 py-1 rounded-full border border-rose-200 font-bold">
             ✗ {{ 'review.incorrect' | translate }}
           </span>
         </span>
@@ -36,7 +36,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       <div class="space-y-4">
         <div 
           *ngFor="let choice of question.choices; let i = index"
-          class="choice-card p-4 rounded-xl border-4 cursor-pointer transition-all duration-150 flex flex-col gap-2 select-none w-full"
+          class="choice-card p-4 rounded-xl border-4 cursor-pointer transition-all duration-150 flex flex-col gap-2.5 select-none w-full"
           [class.border-gray-200]="!isChoiceSelected(choice.id) && !shouldShowAnswerDetails"
           [class.hover:border-primary-300]="!isChoiceSelected(choice.id) && !shouldShowAnswerDetails"
           [class.border-primary-600]="isChoiceSelected(choice.id) && !shouldShowAnswerDetails"
@@ -48,9 +48,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           [class.bg-rose-50]="shouldShowAnswerDetails && isChoiceSelected(choice.id) && !isChoiceCorrect(choice.id)"
           (click)="onChoiceClick(choice.id)">
           
-          <!-- Top Row: Icon + Label + Full Width Choice Text -->
-          <div class="flex items-start gap-3.5 w-full">
-            <!-- Indicator Icon (Radio vs Checkbox) -->
+          <!-- Row 1: Radio/Checkbox Icon + Choice Label + Choice Text -->
+          <div class="flex items-start gap-3 w-full">
+            <!-- Indicator Icon -->
             <div class="flex-shrink-0 mt-0.5">
               <!-- Single Choice Radio Circle -->
               <div *ngIf="question.type === 'single'" 
@@ -81,35 +81,41 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               </div>
             </div>
 
-            <!-- Choice Label & Main Text -->
+            <!-- Choice Label & Text -->
             <div class="flex items-start gap-2.5 flex-grow min-w-0">
               <span class="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center font-bold text-sm text-gray-700 flex-shrink-0">
                 {{ choice.label || getChoiceLabel(i) }}
               </span>
-              <span class="text-base md:text-lg font-medium text-gray-900 leading-relaxed break-words flex-grow">
+              <span class="text-base md:text-lg font-semibold text-gray-900 leading-relaxed break-words flex-grow">
                 {{ choice.text }}
               </span>
             </div>
           </div>
 
-          <!-- Bottom Row: Underline Status Label (Under the Choice Text) -->
+          <!-- Row 2: Status Sub-Banner Placed UNDERNEATH (Below) Choice Text -->
           <div *ngIf="shouldShowAnswerDetails && (isChoiceCorrect(choice.id) || isChoiceSelected(choice.id))" 
-               class="ps-13 pt-1 border-t border-gray-200/60 w-full mt-1">
+               class="w-full pt-2 border-t border-gray-200/80 mt-1 flex flex-col gap-1">
             
-            <div *ngIf="isChoiceCorrect(choice.id) && isChoiceSelected(choice.id)" class="text-emerald-700 font-bold text-xs flex items-center gap-1.5 bg-emerald-100/90 px-3 py-1.5 rounded-lg border border-emerald-300 w-fit">
-              <span>✓</span> 
-              <span class="underline underline-offset-2">{{ 'review.correctAnswer' | translate }}</span>
+            <!-- Correct & Selected -->
+            <div *ngIf="isChoiceCorrect(choice.id) && isChoiceSelected(choice.id)" 
+                 class="text-emerald-800 font-bold text-xs bg-emerald-100/90 border border-emerald-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5 w-full">
+              <span class="text-sm">✓</span> 
+              <span class="underline underline-offset-4 decoration-2 decoration-emerald-600">{{ 'review.correctAnswer' | translate }}</span>
               <span>({{ 'review.yourAnswer' | translate }})</span>
             </div>
 
-            <div *ngIf="isChoiceCorrect(choice.id) && !isChoiceSelected(choice.id)" class="text-emerald-700 font-bold text-xs flex items-center gap-1.5 bg-emerald-100/90 px-3 py-1.5 rounded-lg border border-emerald-300 w-fit">
-              <span>✓</span> 
-              <span class="underline underline-offset-2">{{ 'review.correctAnswer' | translate }}</span>
+            <!-- Correct (Not Selected) -->
+            <div *ngIf="isChoiceCorrect(choice.id) && !isChoiceSelected(choice.id)" 
+                 class="text-emerald-800 font-bold text-xs bg-emerald-100/90 border border-emerald-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5 w-full">
+              <span class="text-sm">✓</span> 
+              <span class="underline underline-offset-4 decoration-2 decoration-emerald-600">{{ 'review.correctAnswer' | translate }}</span>
             </div>
 
-            <div *ngIf="isChoiceSelected(choice.id) && !isChoiceCorrect(choice.id)" class="text-rose-700 font-bold text-xs flex items-center gap-1.5 bg-rose-100/90 px-3 py-1.5 rounded-lg border border-rose-300 w-fit">
-              <span>✗</span> 
-              <span class="underline underline-offset-2">{{ 'review.yourAnswer' | translate }}</span>
+            <!-- Incorrect Selected -->
+            <div *ngIf="isChoiceSelected(choice.id) && !isChoiceCorrect(choice.id)" 
+                 class="text-rose-800 font-bold text-xs bg-rose-100/90 border border-rose-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5 w-full">
+              <span class="text-sm">✗</span> 
+              <span class="underline underline-offset-4 decoration-2 decoration-rose-600">{{ 'review.yourAnswer' | translate }}</span>
               <span>({{ 'review.incorrect' | translate }})</span>
             </div>
           </div>
