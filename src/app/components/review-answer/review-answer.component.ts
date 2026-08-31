@@ -9,18 +9,21 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
   standalone: true,
   imports: [CommonModule, TranslatePipe],
   template: `
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6" *ngIf="question">
-      <div class="flex items-start justify-between mb-4">
-        <h3 class="text-xl font-semibold text-gray-800">
-          <span class="text-gray-500 me-2">Q{{ questionNumber }}.</span>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 md:p-6 mb-6" *ngIf="question">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <h3 class="text-lg md:text-xl font-bold text-gray-900 leading-relaxed">
+          <span class="text-primary-600 me-2">Q{{ questionNumber }}.</span>
           {{ question.text }}
         </h3>
         
-        <span class="px-3 py-1 rounded-full text-sm font-bold whitespace-nowrap"
-          [class.bg-green-100]="isCorrect"
-          [class.text-green-700]="isCorrect"
-          [class.bg-red-100]="isIncorrect"
-          [class.text-red-700]="isIncorrect"
+        <span class="px-3 py-1 rounded-full text-xs font-extrabold whitespace-nowrap flex-shrink-0"
+          [class.bg-emerald-100]="isCorrect"
+          [class.text-emerald-800]="isCorrect"
+          [class.border]="isCorrect"
+          [class.border-emerald-300]="isCorrect"
+          [class.bg-rose-100]="isIncorrect"
+          [class.text-rose-800]="isIncorrect"
+          [class.border-rose-300]="isIncorrect"
           [class.bg-gray-100]="isUnanswered"
           [class.text-gray-700]="isUnanswered">
           <ng-container *ngIf="isCorrect">✓ {{ 'review.correct' | translate }}</ng-container>
@@ -29,37 +32,54 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
         </span>
       </div>
 
-      <div class="space-y-3 mb-6">
+      <div class="space-y-3 mb-4">
         <div *ngFor="let choice of question.choices; let i = index"
-          class="p-3 rounded-lg border flex items-center justify-between"
-          [class.border-green-500]="isChoiceCorrect(choice.id)"
-          [class.bg-green-50]="isChoiceCorrect(choice.id)"
-          [class.border-red-300]="isUserSelected(choice.id) && !isChoiceCorrect(choice.id)"
-          [class.bg-red-50]="isUserSelected(choice.id) && !isChoiceCorrect(choice.id)"
-          [class.border-gray-200]="!isChoiceCorrect(choice.id) && !isUserSelected(choice.id)">
+          class="p-4 rounded-xl border-3 flex flex-col gap-2 transition-all w-full"
+          [class.border-emerald-600]="isChoiceCorrect(choice.id)"
+          [class.bg-emerald-50]="isChoiceCorrect(choice.id)"
+          [class.border-rose-500]="isUserSelected(choice.id) && !isChoiceCorrect(choice.id)"
+          [class.bg-rose-50]="isUserSelected(choice.id) && !isChoiceCorrect(choice.id)"
+          [class.border-gray-200]="!isChoiceCorrect(choice.id) && !isUserSelected(choice.id)"
+          [class.bg-gray-50]="!isChoiceCorrect(choice.id) && !isUserSelected(choice.id)">
           
-          <div class="flex items-center gap-3">
-            <span class="font-bold text-gray-500">{{ choice.label || getChoiceLabel(i) }}.</span>
-            <span>{{ choice.text }}</span>
+          <!-- Choice Header: Label + Text -->
+          <div class="flex items-start gap-3 w-full">
+            <span class="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center font-bold text-xs text-gray-700 flex-shrink-0 mt-0.5">
+              {{ choice.label || getChoiceLabel(i) }}
+            </span>
+            <span class="text-base font-medium text-gray-900 leading-relaxed flex-grow break-words">
+              {{ choice.text }}
+            </span>
           </div>
-          
-          <div class="flex items-center gap-2">
-            <span *ngIf="isChoiceCorrect(choice.id)" class="text-green-700 text-xs font-bold bg-green-100 px-2 py-1 rounded">
-              {{ 'review.correctAnswer' | translate }}
-            </span>
-            <span *ngIf="isUserSelected(choice.id) && !isChoiceCorrect(choice.id)" class="text-red-700 text-xs font-bold bg-red-100 px-2 py-1 rounded">
-              {{ 'review.yourAnswer' | translate }}
-            </span>
-            <span *ngIf="isChoiceCorrect(choice.id) && isUserSelected(choice.id)" class="text-green-700 text-xs font-bold bg-green-200 px-2 py-1 rounded">
-              ✓ {{ 'review.yourAnswer' | translate }}
-            </span>
+
+          <!-- Choice Status Label Underneath Text -->
+          <div *ngIf="isChoiceCorrect(choice.id) || isUserSelected(choice.id)" class="pt-1.5 border-t border-gray-200/60 w-full mt-1">
+            <div *ngIf="isChoiceCorrect(choice.id) && isUserSelected(choice.id)" class="text-emerald-700 font-bold text-xs flex items-center gap-1.5 bg-emerald-100/90 px-3 py-1 rounded-lg border border-emerald-300 w-fit">
+              <span>✓</span> 
+              <span class="underline underline-offset-2">{{ 'review.correctAnswer' | translate }}</span>
+              <span>({{ 'review.yourAnswer' | translate }})</span>
+            </div>
+
+            <div *ngIf="isChoiceCorrect(choice.id) && !isUserSelected(choice.id)" class="text-emerald-700 font-bold text-xs flex items-center gap-1.5 bg-emerald-100/90 px-3 py-1 rounded-lg border border-emerald-300 w-fit">
+              <span>✓</span> 
+              <span class="underline underline-offset-2">{{ 'review.correctAnswer' | translate }}</span>
+            </div>
+
+            <div *ngIf="isUserSelected(choice.id) && !isChoiceCorrect(choice.id)" class="text-rose-700 font-bold text-xs flex items-center gap-1.5 bg-rose-100/90 px-3 py-1 rounded-lg border border-rose-300 w-fit">
+              <span>✗</span> 
+              <span class="underline underline-offset-2">{{ 'review.yourAnswer' | translate }}</span>
+              <span>({{ 'review.incorrect' | translate }})</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div *ngIf="question.explanation" class="mt-4 p-4 bg-blue-50 text-blue-800 rounded-lg border border-blue-100">
-        <h4 class="font-bold mb-1">{{ 'review.explanation' | translate }}:</h4>
-        <p>{{ question.explanation }}</p>
+      <!-- Explanation Text -->
+      <div *ngIf="question.explanation" class="mt-4 p-4 bg-blue-50 text-blue-900 rounded-xl border border-blue-200">
+        <h4 class="font-bold mb-1 text-sm flex items-center gap-2">
+          <span>💡</span> {{ 'review.explanation' | translate }}:
+        </h4>
+        <p class="text-sm leading-relaxed text-blue-850">{{ question.explanation }}</p>
       </div>
     </div>
   `
