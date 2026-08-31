@@ -36,9 +36,12 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       <div class="space-y-4">
         <div 
           *ngFor="let choice of question.choices; let i = index"
-          class="choice-card p-4 rounded-xl border-4 cursor-pointer transition-all duration-150 flex flex-col gap-2.5 select-none w-full"
+          class="choice-card p-4 rounded-xl border-4 transition-all duration-150 flex flex-col gap-2.5 select-none w-full"
+          [class.cursor-pointer]="!isAnswerLocked"
+          [class.cursor-not-allowed]="isAnswerLocked"
+          [class.opacity-90]="isAnswerLocked"
           [class.border-gray-200]="!isChoiceSelected(choice.id) && !shouldShowAnswerDetails"
-          [class.hover:border-primary-300]="!isChoiceSelected(choice.id) && !shouldShowAnswerDetails"
+          [class.hover:border-primary-300]="!isChoiceSelected(choice.id) && !shouldShowAnswerDetails && !isAnswerLocked"
           [class.border-primary-600]="isChoiceSelected(choice.id) && !shouldShowAnswerDetails"
           [class.bg-primary-50]="isChoiceSelected(choice.id) && !shouldShowAnswerDetails"
           [class.shadow-md]="isChoiceSelected(choice.id) && !shouldShowAnswerDetails"
@@ -197,6 +200,10 @@ export class QuizQuestionComponent implements OnChanges {
     return this.showResult || (this.question.userAnswer !== null && this.question.userAnswer !== undefined);
   }
 
+  get isAnswerLocked(): boolean {
+    return this.shouldShowAnswerDetails;
+  }
+
   get isUserAnswerCorrect(): boolean {
     if (!this.question.userAnswer) return false;
     if (this.question.type === 'single') {
@@ -216,6 +223,10 @@ export class QuizQuestionComponent implements OnChanges {
   }
 
   onChoiceClick(id: string) {
+    if (this.isAnswerLocked) {
+      return; // Lock choices once answered!
+    }
+
     if (this.question.type === 'multiple') {
       const idx = this.selectedChoiceIds.indexOf(id);
       if (idx > -1) {
