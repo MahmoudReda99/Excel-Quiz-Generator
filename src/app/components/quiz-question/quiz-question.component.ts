@@ -124,30 +124,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         </div>
       </div>
 
-      <!-- Right / Wrong Banner Feedback (Only shown when shouldShowAnswerDetails = true in Review mode) -->
-      <div *ngIf="shouldShowAnswerDetails" class="mt-6">
-        <div *ngIf="isUserAnswerCorrect" class="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-xl text-emerald-900 flex items-center gap-3">
-          <span class="text-2xl flex-shrink-0">🎉</span>
-          <div>
-            <div class="font-bold text-base">{{ 'review.correct' | translate }}!</div>
-            <div class="text-sm text-emerald-800">{{ getCorrectChoiceTexts() }}</div>
-          </div>
-        </div>
-
-        <div *ngIf="!isUserAnswerCorrect" class="p-4 bg-rose-50 border-2 border-rose-300 rounded-xl text-rose-900 flex items-center gap-3">
-          <span class="text-2xl flex-shrink-0">⚠️</span>
-          <div>
-            <div class="font-bold text-base">{{ 'review.incorrect' | translate }}</div>
-            <div class="text-sm text-rose-800">
-              {{ 'review.correctAnswer' | translate }}: <strong class="underline">{{ getCorrectChoiceTexts() }}</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Explanation Text (Only shown when shouldShowAnswerDetails = true in Review mode) -->
       <div *ngIf="shouldShowAnswerDetails && question.explanation" class="mt-4 p-4 bg-blue-50 text-blue-900 rounded-xl border border-blue-200">
-        <h4 class="font-bold mb-1 flex items-center gap-2">
+        <h4 class="font-bold mb-1 text-sm flex items-center gap-2">
           <span>💡</span> {{ 'review.explanation' | translate }}:
         </h4>
         <p class="text-sm leading-relaxed text-blue-850">{{ question.explanation }}</p>
