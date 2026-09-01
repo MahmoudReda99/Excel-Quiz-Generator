@@ -29,7 +29,7 @@ export class ColumnDetectorService {
 
     const headers = sheet.headers;
 
-    // Pass 1: Detect explicit metadata/answer/type/explanation headers
+    // Pass 1: Detect explicit headers by priority
     headers.forEach((h, index) => {
       if (!h) return;
       
@@ -65,27 +65,6 @@ export class ColumnDetectorService {
 
         mapping.questionCol = index;
       });
-    }
-
-    // Pass 3: Fallback for Choice columns if choice columns don't have explicit headers
-    if (mapping.choiceCols.length === 0 && sheet.rows.length > 0) {
-      const maxCols = Math.max(...sheet.rows.map(r => r.length));
-      for (let c = 0; c < maxCols; c++) {
-        if (c === mapping.questionCol || c === mapping.correctAnswerCol || 
-            c === mapping.typeCol || c === mapping.explanationCol || 
-            c === mapping.difficultyCol) {
-          continue;
-        }
-        const norm = this.cleanHeader(headers[c] || '');
-        if (this.knownExcludes.some(ex => norm.includes(ex))) {
-          continue;
-        }
-        // Check if data rows have non-empty text in this column
-        const hasData = sheet.rows.some(r => r && r[c] !== null && r[c] !== undefined && String(r[c]).trim() !== '');
-        if (hasData) {
-          mapping.choiceCols.push(c);
-        }
-      }
     }
 
     const hasQuestion = mapping.questionCol !== null;
