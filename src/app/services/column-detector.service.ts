@@ -48,6 +48,11 @@ export class ColumnDetectorService {
       }
     });
 
+    // Limit choice columns strictly to options A, B, C, D (max 4 columns)
+    if (mapping.choiceCols.length > 4) {
+      mapping.choiceCols = mapping.choiceCols.slice(0, 4);
+    }
+
     // Pass 2: Fallback detection for Question column if header is dynamic/title-based
     if (mapping.questionCol === null) {
       headers.forEach((h, index) => {
@@ -96,11 +101,12 @@ export class ColumnDetectorService {
 
   private isChoiceHeader(h: string): boolean {
     const norm = this.cleanHeader(h);
-    if (/^option\s+[a-z0-9]+$/i.test(norm)) return true;
-    if (/^choice\s+[a-z0-9]+$/i.test(norm)) return true;
-    if (/^خيار\s+[أ-يa-z0-9]+$/i.test(norm) || /^الخيار\s+[أ-يa-z0-9]+$/i.test(norm)) return true;
-    if (norm.includes('الاختيار') || norm.includes('الخيار')) return true;
-    if (/^[a-h]$/i.test(norm)) return true;
+    if (/^option\s+[a-d]$/i.test(norm)) return true;
+    if (/^choice\s+[a-d]$/i.test(norm)) return true;
+    if (/^خيار\s+[أ-دa-d]$/i.test(norm) || /^الخيار\s+[أ-دa-d]$/i.test(norm)) return true;
+    if (/^option\s+[1-4]$/i.test(norm) || /^choice\s+[1-4]$/i.test(norm)) return true;
+    if (/^[a-d]$/i.test(norm)) return true;
+    if (['الاختيار الأول', 'الاختيار الثاني', 'الاختيار الثالث', 'الاختيار الرابع', 'الخيار الأول', 'الخيار الثاني', 'الخيار الثالث', 'الخيار الرابع'].includes(norm)) return true;
     return false;
   }
 
