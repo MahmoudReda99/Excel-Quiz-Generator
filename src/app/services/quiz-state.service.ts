@@ -18,8 +18,8 @@ export class QuizStateService {
   
   private defaultConfig: QuizConfig = {
     mode: 'exam',
-    randomizeQuestions: false,
-    randomizeAnswers: true, // Default randomize choice order
+    randomizeQuestions: true, // Enabled default question order randomization
+    randomizeAnswers: true,   // Enabled default choice order randomization
     questionCount: 'all',
     timerMinutes: null
   };
@@ -153,7 +153,11 @@ export class QuizStateService {
 
   retryQuiz(): void {
     const state = this.quizState$.value;
-    const resetQuestions = state.questions.map(q => {
+    let pool = [...state.questions];
+    if (state.config.randomizeQuestions) {
+      pool = this.shuffleArray(pool);
+    }
+    const resetQuestions = pool.map(q => {
       const newQ = { ...q, userAnswer: null };
       if (state.config.randomizeAnswers && newQ.choices && newQ.choices.length > 0) {
         newQ.choices = this.shuffleArray(newQ.choices);
@@ -175,11 +179,19 @@ export class QuizStateService {
     if (!state.result) return false;
 
     // Filter to questions that were incorrect or unanswered
-    const wrongQuestions = state.questions.filter(q => {
+    let wrongQuestions = state.questions.filter(q => {
       if (q.userAnswer === null || q.userAnswer === undefined) return true;
       if (Array.isArray(q.userAnswer) && q.userAnswer.length === 0) return true;
       return !this.normalizer.isCorrect(q.userAnswer, q.correctAnswer, q.type);
-    }).map(q => {
+    });
+
+    if (wrongQuestions.length === 0) return false;
+
+    if (state.config.randomizeQuestions) {
+      wrongQuestions = this.shuffleArray(wrongQuestions);
+    }
+
+    const resetQuestions = wrongQuestions.map(q => {
       const newQ = { ...q, userAnswer: null };
       if (state.config.randomizeAnswers && newQ.choices && newQ.choices.length > 0) {
         newQ.choices = this.shuffleArray(newQ.choices);
@@ -187,13 +199,11 @@ export class QuizStateService {
       return newQ;
     });
 
-    if (wrongQuestions.length === 0) return false;
-
     this.quizState$.next({
       ...state,
       status: 'active',
       currentIndex: 0,
-      questions: wrongQuestions,
+      questions: resetQuestions,
       startTime: new Date(),
       result: null
     });

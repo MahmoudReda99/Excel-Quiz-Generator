@@ -228,10 +228,10 @@ export class AnalysisComponent implements OnInit {
     this.quizState.setValidatedQuestions(this.allQuestions);
     this.quizState.setValidationResult(this.validationResult);
 
-    // Apply default quiz config: Exam mode, randomize choices = true, no timer, all questions
+    // Apply default quiz config: Exam mode, randomize questions = true, randomize choices = true, no timer, all questions
     const defaultConfig: QuizConfig = {
       mode: 'exam',
-      randomizeQuestions: false,
+      randomizeQuestions: true,
       randomizeAnswers: true,
       questionCount: 'all',
       timerMinutes: null
