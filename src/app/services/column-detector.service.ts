@@ -22,15 +22,18 @@ export class ColumnDetectorService {
 
     const headers = sheet.headers;
 
+    // Pass 1: Detect explicit headers by priority
     headers.forEach((h, index) => {
       if (!h) return;
       
-      if (this.isTypeHeader(h) && mapping.typeCol === null) {
+      if (this.isQuestionHeader(h) && mapping.questionCol === null) {
+        mapping.questionCol = index;
+      } else if (this.isAnswerHeader(h) && mapping.correctAnswerCol === null) {
+        mapping.correctAnswerCol = index;
+      } else if (this.isTypeHeader(h) && mapping.typeCol === null) {
         mapping.typeCol = index;
       } else if (this.isExplanationHeader(h) && mapping.explanationCol === null) {
         mapping.explanationCol = index;
-      } else if (this.isAnswerHeader(h) && mapping.correctAnswerCol === null) {
-        mapping.correctAnswerCol = index;
       } else if (this.isChoiceHeader(h)) {
         mapping.choiceCols.push(index);
       } else if (this.isDifficultyHeader(h) && mapping.difficultyCol === null) {
@@ -38,51 +41,47 @@ export class ColumnDetectorService {
       }
     });
 
-    // Detect question column from remaining candidate columns
-    headers.forEach((h, index) => {
-      if (!h || mapping.questionCol !== null) return;
-      if (index === mapping.typeCol || index === mapping.explanationCol || 
-          index === mapping.correctAnswerCol || mapping.choiceCols.includes(index) ||
-          index === mapping.difficultyCol) {
-        return;
-      }
-
-      const norm = h.toLowerCase().trim().replace(/\*/g, '');
-      if (this.knownExcludes.some(ex => norm.includes(ex))) {
-        return;
-      }
-
-      mapping.questionCol = index;
-    });
-
-    // Fallback: if no question column found yet, check for explicit 'question' header
+    // Pass 2: Detect question column from remaining candidate columns if not explicitly named
     if (mapping.questionCol === null) {
       headers.forEach((h, index) => {
         if (!h || mapping.questionCol !== null) return;
-        const norm = h.toLowerCase().trim().replace(/\*/g, '');
-        if (norm.includes('question') || norm.includes('سؤال') || norm.includes('السؤال')) {
-          mapping.questionCol = index;
+        if (index === mapping.typeCol || index === mapping.explanationCol || 
+            index === mapping.correctAnswerCol || mapping.choiceCols.includes(index) ||
+            index === mapping.difficultyCol) {
+          return;
         }
+
+        const norm = h.toLowerCase().trim().replace(/\*/g, '');
+        if (this.knownExcludes.some(ex => norm.includes(ex))) {
+          return;
+        }
+
+        mapping.questionCol = index;
       });
     }
 
-    let confidence: 'high' | 'medium' | 'low' = 'low';
     const hasQuestion = mapping.questionCol !== null;
     const hasAnswer = mapping.correctAnswerCol !== null;
-    const hasChoices = mapping.choiceCols.length > 0;
 
-    if (hasQuestion && hasAnswer && hasChoices) {
+    // High confidence whenever Question and Answer columns are detected
+    // (Choice columns may be empty for True/False questions, which is completely valid)
+    let confidence: 'high' | 'medium' | 'low' = 'low';
+    if (hasQuestion && hasAnswer) {
       confidence = 'high';
-    } else if (hasQuestion && hasAnswer) {
+    } else if (hasQuestion) {
       confidence = 'medium';
     }
 
     const warnings: string[] = [];
     if (!hasQuestion) warnings.push('Question column not detected.');
     if (!hasAnswer) warnings.push('Correct answer column not detected.');
-    if (!hasChoices) warnings.push('Choice columns not detected.');
 
     return { mapping, confidence, warnings };
+  }
+
+  private isQuestionHeader(h: string): boolean {
+    const norm = h.toLowerCase().trim().replace(/\*/g, '');
+    return ['question', 'سؤال', 'السؤال', 'نص السؤال', 'أسئلة', 'الأسئلة'].some(p => norm.includes(p));
   }
 
   private isChoiceHeader(h: string): boolean {
@@ -97,7 +96,7 @@ export class ColumnDetectorService {
 
   private isAnswerHeader(h: string): boolean {
     const norm = h.toLowerCase().trim().replace(/\*/g, '');
-    return ['correct answer', 'answer', 'correct', 'الإجابة الصحيحة', 'الحل', 'الإجابة'].includes(norm);
+    return ['correct answer', 'answer', 'correct', 'الإجابة الصحيحة', 'الحل', 'الإجابة', 'إجابة', 'الجواب'].some(p => norm.includes(p));
   }
 
   private isTypeHeader(h: string): boolean {

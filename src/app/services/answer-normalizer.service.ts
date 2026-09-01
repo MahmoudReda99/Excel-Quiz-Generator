@@ -27,6 +27,17 @@ export class AnswerNormalizerService {
     const str = String(answer).trim();
     if (!str) return '';
 
+    // True/False mappings:
+    const lower = str.toLowerCase();
+    if (['true', 'صح', 'صحيح', 'ص', 'yes', 'نعم'].includes(lower)) {
+      const choiceA = choices.find(c => c.id === 'A');
+      if (choiceA) return 'A';
+    }
+    if (['false', 'خطأ', 'خاطئ', 'خ', 'no', 'لا'].includes(lower)) {
+      const choiceB = choices.find(c => c.id === 'B');
+      if (choiceB) return 'B';
+    }
+
     // If single letter A-H
     if (/^[A-H]$/i.test(str)) {
       return str.toUpperCase();
@@ -44,7 +55,6 @@ export class AnswerNormalizerService {
     const num = parseInt(str, 10);
     if (!isNaN(num) && num >= 1 && num <= 8) {
       const label = String.fromCharCode(64 + num); // 1 -> A, 2 -> B...
-      // Check if choice exists with this label or index
       const matched = choices.find(c => c.label === label || c.id === label);
       if (matched) return matched.id;
       if (choices[num - 1]) return choices[num - 1].id;

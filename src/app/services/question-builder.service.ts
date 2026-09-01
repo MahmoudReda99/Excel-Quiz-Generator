@@ -39,15 +39,12 @@ export class QuestionBuilderService {
         });
       }
 
-      // True / False fallback if choices not explicitly listed in Excel columns
+      // True / False fallback if choices not explicitly listed in Excel option columns
       if (choices.length === 0) {
-        const rawStr = String(rawAnswer || '').trim().toLowerCase();
-        if (['true', 'false', 'صح', 'خطأ', 'نعم', 'لا'].includes(rawStr)) {
-          choices = [
-            { id: 'A', label: 'A', text: 'صح / True' },
-            { id: 'B', label: 'B', text: 'خطأ / False' }
-          ];
-        }
+        choices = [
+          { id: 'A', label: 'A', text: 'صح / True' },
+          { id: 'B', label: 'B', text: 'خطأ / False' }
+        ];
       }
 
       const normalizedAnswer = this.normalizer.normalizeAnswer(rawAnswer, choices);
