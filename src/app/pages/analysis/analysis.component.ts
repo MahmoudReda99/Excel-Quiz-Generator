@@ -10,8 +10,8 @@ import { QuestionBuilderService } from '../../services/question-builder.service'
 import { ValidatorService } from '../../services/validator.service';
 import { QuizStateService } from '../../services/quiz-state.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
-import { ColumnMapping, ExcelData, SheetInfo, ValidationResult, DetectionResult } from '../../models/excel.model';
-import { QuizQuestion } from '../../models/quiz.model';
+import { ColumnMapping, ExcelData, SheetInfo, ValidationResult } from '../../models/excel.model';
+import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
 
 @Component({
   selector: 'app-analysis',
@@ -144,7 +144,6 @@ export class AnalysisComponent implements OnInit {
       return;
     }
     this.excelData = data;
-    // Filter to sheets that have data (more than 0 rows)
     this.dataSheets = data.sheets.filter(s => s.rowCount > 0);
     if (this.dataSheets.length > 0) {
       this.selectedSheetIndex = 0;
@@ -195,15 +194,29 @@ export class AnalysisComponent implements OnInit {
   }
 
   onGenerateQuiz() {
-    // Include ALL parsed questions in the quiz pool without dropping any
     this.quizState.setQuestions(this.allQuestions);
     this.quizState.setValidatedQuestions(this.allQuestions);
     this.quizState.setValidationResult(this.validationResult);
-    this.router.navigate(['/settings']);
+
+    // Apply default quiz config: Exam mode, randomize choices = true, no timer, all questions
+    const defaultConfig: QuizConfig = {
+      mode: 'exam',
+      randomizeQuestions: false,
+      randomizeAnswers: true,
+      questionCount: 'all',
+      timerMinutes: null
+    };
+
+    this.quizState.configureQuiz(defaultConfig);
+    this.quizState.startQuiz();
+    this.router.navigate(['/quiz']);
   }
 
   getChoiceNames(): string {
     if (!this.currentSheet) return '—';
+    if (this.mapping.choiceCols.length === 0) {
+      return 'صح / خطأ (تلقائي)';
+    }
     return this.mapping.choiceCols
       .map(i => this.currentSheet!.headers[i] || `Column ${i}`)
       .join(', ');

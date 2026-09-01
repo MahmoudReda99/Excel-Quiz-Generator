@@ -18,7 +18,7 @@ export class QuizStateService {
   private defaultConfig: QuizConfig = {
     mode: 'exam',
     randomizeQuestions: false,
-    randomizeAnswers: false,
+    randomizeAnswers: true, // Default randomize choice order
     questionCount: 'all',
     timerMinutes: null
   };
@@ -149,7 +149,13 @@ export class QuizStateService {
 
   retryQuiz(): void {
     const state = this.quizState$.value;
-    const resetQuestions = state.questions.map(q => ({ ...q, userAnswer: null }));
+    const resetQuestions = state.questions.map(q => {
+      const newQ = { ...q, userAnswer: null };
+      if (state.config.randomizeAnswers && newQ.choices && newQ.choices.length > 0) {
+        newQ.choices = this.shuffleArray(newQ.choices);
+      }
+      return newQ;
+    });
     this.quizState$.next({
       ...state,
       status: 'active',
