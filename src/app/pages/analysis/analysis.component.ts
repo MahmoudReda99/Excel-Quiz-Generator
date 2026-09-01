@@ -30,10 +30,11 @@ import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
         <h2 class="text-2xl font-bold text-gray-900">{{ 'analysis.title' | translate }}</h2>
         
         <div *ngIf="dataSheets.length > 1" class="flex items-center gap-2">
-          <label class="text-sm font-medium text-gray-700">{{ 'upload.sheets' | translate }}</label>
+          <label class="text-sm font-bold text-gray-700">{{ 'upload.sheets' | translate }}:</label>
           <select [(ngModel)]="selectedSheetIndex" (ngModelChange)="onSheetChange()" 
-                  class="block w-48 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md border">
-            <option *ngFor="let sheet of dataSheets; let i = index" [ngValue]="i">{{ sheet.name }}</option>
+                  class="block w-64 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-xl border bg-white shadow-sm font-semibold text-gray-800">
+            <option [ngValue]="-1">🌟 جميع الأوراق مدمجة (All Sheets Combined)</option>
+            <option *ngFor="let sheet of dataSheets; let i = index" [ngValue]="i">{{ sheet.name }} ({{ sheet.rowCount }} أسئلة)</option>
           </select>
         </div>
       </div>
@@ -45,7 +46,9 @@ import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
           <svg class="h-6 w-6 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span class="font-medium">{{ 'analysis.autoDetected' | translate }}</span>
+          <span class="font-medium">
+            {{ isCombinedMode ? 'تم دمج جميع الأوراق واكتشاف الأسئلة بنجاح' : ('analysis.autoDetected' | translate) }}
+          </span>
         </div>
         <button type="button" class="text-sm font-medium text-primary-600 hover:text-primary-500" (click)="showManualMapping = true">
           {{ 'analysis.mapManually' | translate }}
@@ -68,11 +71,6 @@ import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
           <span class="text-emerald-500">✓</span>
           <span class="font-medium text-gray-700">{{ 'analysis.correctAnswer' | translate }}:</span>
           <span class="text-gray-600">{{ mapping.correctAnswerCol !== null ? currentSheet.headers[mapping.correctAnswerCol] : '—' }}</span>
-        </div>
-        <div class="flex items-center gap-2" *ngIf="mapping.explanationCol !== null && currentSheet">
-          <span class="text-emerald-500">✓</span>
-          <span class="font-medium text-gray-700">{{ 'analysis.explanation' | translate }}:</span>
-          <span class="text-gray-600">{{ currentSheet.headers[mapping.explanationCol!] }}</span>
         </div>
       </div>
 
@@ -118,7 +116,7 @@ export class AnalysisComponent implements OnInit {
   private router = inject(Router);
 
   excelData: ExcelData | null = null;
-  selectedSheetIndex = 0;
+  selectedSheetIndex = -1; // Default -1 = Combined Mode (all sheets)
   dataSheets: SheetInfo[] = [];
   currentSheet: SheetInfo | null = null;
   
@@ -146,9 +144,13 @@ export class AnalysisComponent implements OnInit {
     this.excelData = data;
     this.dataSheets = data.sheets.filter(s => s.rowCount > 0);
     if (this.dataSheets.length > 0) {
-      this.selectedSheetIndex = 0;
+      this.selectedSheetIndex = this.dataSheets.length > 1 ? -1 : 0;
       this.loadSheetData();
     }
+  }
+
+  get isCombinedMode(): boolean {
+    return this.selectedSheetIndex === -1;
   }
 
   onSheetChange() {
@@ -156,10 +158,38 @@ export class AnalysisComponent implements OnInit {
   }
 
   loadSheetData() {
-    this.currentSheet = this.dataSheets[this.selectedSheetIndex];
-    if (this.currentSheet) {
-      this.detectColumns();
+    if (this.isCombinedMode) {
+      this.processAllSheetsCombined();
+    } else {
+      this.currentSheet = this.dataSheets[this.selectedSheetIndex];
+      if (this.currentSheet) {
+        this.detectColumns();
+      }
     }
+  }
+
+  processAllSheetsCombined() {
+    let combinedQuestions: QuizQuestion[] = [];
+    this.confidence = 'high';
+    
+    // First sheet header for display
+    this.currentSheet = this.dataSheets[0];
+    if (this.currentSheet) {
+      const result = this.detector.detect(this.currentSheet);
+      this.mapping = result.mapping;
+    }
+
+    this.dataSheets.forEach(sheet => {
+      const sheetResult = this.detector.detect(sheet);
+      if (sheetResult.mapping.questionCol !== null && sheetResult.mapping.correctAnswerCol !== null) {
+        const qList = this.builder.buildQuestions(sheet, sheetResult.mapping);
+        combinedQuestions = combinedQuestions.concat(qList);
+      }
+    });
+
+    this.allQuestions = combinedQuestions;
+    this.previewQuestions = this.allQuestions.slice(0, 3);
+    this.validationResult = this.validator.validate(this.allQuestions);
   }
 
   detectColumns() {

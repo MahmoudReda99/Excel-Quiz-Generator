@@ -8,8 +8,14 @@ export class ColumnDetectorService {
   private knownExcludes = [
     'serial no.', 'score', 'difficulty', 'sharing range',
     'label', 'materials and instructions', 'comprehensive questions',
-    'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'qeustion type', 'question type'
+    'المواد العامة', 'التعليمات', 'مطلوبة للأسئلة', 'شرح الإجابة', 'شرح',
+    'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'qeustion type', 'question type',
+    'نوع السؤال', 'النتيجة', 'نطاقات مشتركة'
   ];
+
+  private cleanHeader(h: any): string {
+    return String(h || '').toLowerCase().replace(/[*_]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
 
   detect(sheet: SheetInfo): DetectionResult {
     const mapping: ColumnMapping = {
@@ -29,6 +35,8 @@ export class ColumnDetectorService {
       
       if (this.isAnswerHeader(h) && mapping.correctAnswerCol === null) {
         mapping.correctAnswerCol = index;
+      } else if (this.isQuestionHeader(h) && mapping.questionCol === null) {
+        mapping.questionCol = index;
       } else if (this.isTypeHeader(h) && mapping.typeCol === null) {
         mapping.typeCol = index;
       } else if (this.isExplanationHeader(h) && mapping.explanationCol === null) {
@@ -37,8 +45,6 @@ export class ColumnDetectorService {
         mapping.choiceCols.push(index);
       } else if (this.isDifficultyHeader(h) && mapping.difficultyCol === null) {
         mapping.difficultyCol = index;
-      } else if (this.isQuestionHeader(h) && mapping.questionCol === null) {
-        mapping.questionCol = index;
       }
     });
 
@@ -52,7 +58,7 @@ export class ColumnDetectorService {
           return;
         }
 
-        const norm = h.toLowerCase().trim().replace(/\*/g, '');
+        const norm = this.cleanHeader(h);
         if (this.knownExcludes.some(ex => norm.includes(ex))) {
           return;
         }
@@ -63,7 +69,6 @@ export class ColumnDetectorService {
 
     // Pass 3: Fallback for Choice columns if choice columns don't have explicit headers
     if (mapping.choiceCols.length === 0 && sheet.rows.length > 0) {
-      // Find maximum number of columns across data rows
       const maxCols = Math.max(...sheet.rows.map(r => r.length));
       for (let c = 0; c < maxCols; c++) {
         if (c === mapping.questionCol || c === mapping.correctAnswerCol || 
@@ -71,12 +76,12 @@ export class ColumnDetectorService {
             c === mapping.difficultyCol) {
           continue;
         }
-        const norm = (headers[c] || '').toLowerCase().trim().replace(/\*/g, '');
+        const norm = this.cleanHeader(headers[c] || '');
         if (this.knownExcludes.some(ex => norm.includes(ex))) {
           continue;
         }
         // Check if data rows have non-empty text in this column
-        const hasData = sheet.rows.some(r => r[c] !== null && r[c] !== undefined && String(r[c]).trim() !== '');
+        const hasData = sheet.rows.some(r => r && r[c] !== null && r[c] !== undefined && String(r[c]).trim() !== '');
         if (hasData) {
           mapping.choiceCols.push(c);
         }
@@ -101,51 +106,46 @@ export class ColumnDetectorService {
   }
 
   private isQuestionHeader(h: string): boolean {
-    const norm = h.toLowerCase().trim().replace(/\*/g, '');
-    
-    // Explicitly exclude metadata columns
-    if (this.knownExcludes.some(ex => norm.includes(ex))) {
-      return false;
-    }
-
-    // Exact or strict match for question keywords
+    const norm = this.cleanHeader(h);
+    if (this.knownExcludes.some(ex => norm.includes(ex))) return false;
     const matches = [
       'question', 'questions', 'q.', 'q_text', 'qtitle', 'question text', 'question body',
-      'السؤال', 'سؤال', 'نص السؤال', 'أسئلة', 'الأسئلة', 'سؤال تعليمي', 'مضمون السؤال'
+      'السؤال', 'سؤال', 'نص السؤال', 'أسئلة', 'الأسئلة', 'الجذعية', 'جذعية', 'سؤال تعليمي', 'مضمون السؤال'
     ];
-    return matches.some(p => norm === p || norm === `*${p}` || (norm.includes(p) && !norm.includes('materials')));
+    return matches.some(p => norm === p || norm.includes(p));
   }
 
   private isChoiceHeader(h: string): boolean {
-    const norm = h.toLowerCase().trim().replace(/\*/g, '');
+    const norm = this.cleanHeader(h);
     if (/^option\s+[a-z0-9]+$/i.test(norm)) return true;
     if (/^choice\s+[a-z0-9]+$/i.test(norm)) return true;
-    if (/^إجابة\s+[0-9]+$/i.test(norm) || /^الإجابة\s+[0-9]+$/i.test(norm)) return true;
+    if (/^خيار\s+[أ-يa-z0-9]+$/i.test(norm) || /^الخيار\s+[أ-يa-z0-9]+$/i.test(norm)) return true;
     if (norm.includes('الاختيار') || norm.includes('الخيار')) return true;
     if (/^[a-h]$/i.test(norm)) return true;
     return false;
   }
 
   private isAnswerHeader(h: string): boolean {
-    const norm = h.toLowerCase().trim().replace(/\*/g, '');
+    const norm = this.cleanHeader(h);
+    if (this.knownExcludes.some(ex => norm.includes(ex))) return false;
     return [
       'correct answer', 'answer', 'correct', 'solution',
       'الإجابة الصحيحة', 'الحل', 'الإجابة', 'إجابة', 'الجواب', 'اجابة'
-    ].some(p => norm.includes(p) || norm === p);
+    ].some(p => norm === p || norm.includes(p));
   }
 
   private isTypeHeader(h: string): boolean {
-    const norm = h.toLowerCase().trim().replace(/\*/g, '');
+    const norm = this.cleanHeader(h);
     return ['qeustion type', 'question type', 'type', 'النوع', 'نوع السؤال'].some(p => norm.includes(p));
   }
 
   private isExplanationHeader(h: string): boolean {
-    const norm = h.toLowerCase().trim().replace(/\*/g, '');
+    const norm = this.cleanHeader(h);
     return ['explanation', 'شرح', 'التفسير', 'الشرح'].some(p => norm.includes(p));
   }
 
   private isDifficultyHeader(h: string): boolean {
-    const norm = h.toLowerCase().trim().replace(/\*/g, '');
+    const norm = this.cleanHeader(h);
     return norm.includes('difficulty') || norm.includes('صعوبة') || norm.includes('مستوى الصعوبة');
   }
 }
