@@ -36,8 +36,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       <div class="space-y-4">
         <div 
           *ngFor="let choice of question.choices; let i = index"
-          class="choice-card p-4 rounded-xl border-4 transition-all duration-150 flex flex-col gap-2.5 select-none w-full"
-          [class.cursor-pointer]="!isAnswerLocked"
+          class="choice-card p-4 rounded-xl border-4 transition-all duration-150 flex flex-col gap-2.5 select-none w-full cursor-pointer"
           [class.cursor-not-allowed]="isAnswerLocked"
           [class.opacity-90]="isAnswerLocked"
           [class.border-gray-200]="!isChoiceSelected(choice.id) && !shouldShowAnswerDetails"
@@ -95,7 +94,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             </div>
           </div>
 
-          <!-- Row 2: Status Sub-Banner Placed UNDERNEATH (Below) Choice Text -->
+          <!-- Row 2: Status Sub-Banner (Only shown when shouldShowAnswerDetails = true in Review mode) -->
           <div *ngIf="shouldShowAnswerDetails && (isChoiceCorrect(choice.id) || isChoiceSelected(choice.id))" 
                class="w-full pt-2 border-t border-gray-200/80 mt-1 flex flex-col gap-1">
             
@@ -125,7 +124,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         </div>
       </div>
 
-      <!-- Right / Wrong Banner Feedback -->
+      <!-- Right / Wrong Banner Feedback (Only shown when shouldShowAnswerDetails = true in Review mode) -->
       <div *ngIf="shouldShowAnswerDetails" class="mt-6">
         <div *ngIf="isUserAnswerCorrect" class="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-xl text-emerald-900 flex items-center gap-3">
           <span class="text-2xl flex-shrink-0">🎉</span>
@@ -146,7 +145,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         </div>
       </div>
 
-      <!-- Explanation Text -->
+      <!-- Explanation Text (Only shown when shouldShowAnswerDetails = true in Review mode) -->
       <div *ngIf="shouldShowAnswerDetails && question.explanation" class="mt-4 p-4 bg-blue-50 text-blue-900 rounded-xl border border-blue-200">
         <h4 class="font-bold mb-1 flex items-center gap-2">
           <span>💡</span> {{ 'review.explanation' | translate }}:
@@ -197,11 +196,11 @@ export class QuizQuestionComponent implements OnChanges {
   }
 
   get shouldShowAnswerDetails(): boolean {
-    return this.showResult || (this.question.userAnswer !== null && this.question.userAnswer !== undefined);
+    return this.showResult;
   }
 
   get isAnswerLocked(): boolean {
-    return this.shouldShowAnswerDetails;
+    return this.showResult;
   }
 
   get isUserAnswerCorrect(): boolean {
@@ -224,7 +223,7 @@ export class QuizQuestionComponent implements OnChanges {
 
   onChoiceClick(id: string) {
     if (this.isAnswerLocked) {
-      return; // Lock choices once answered!
+      return;
     }
 
     if (this.question.type === 'multiple') {
