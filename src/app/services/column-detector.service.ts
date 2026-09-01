@@ -41,7 +41,7 @@ export class ColumnDetectorService {
       }
     });
 
-    // Pass 2: Detect question column from remaining candidate columns if not explicitly named
+    // Pass 2: Fallback detection for Question column if header is dynamic or unlabelled
     if (mapping.questionCol === null) {
       headers.forEach((h, index) => {
         if (!h || mapping.questionCol !== null) return;
@@ -64,7 +64,6 @@ export class ColumnDetectorService {
     const hasAnswer = mapping.correctAnswerCol !== null;
 
     // High confidence whenever Question and Answer columns are detected
-    // (Choice columns may be empty for True/False questions, which is completely valid)
     let confidence: 'high' | 'medium' | 'low' = 'low';
     if (hasQuestion && hasAnswer) {
       confidence = 'high';
@@ -81,7 +80,11 @@ export class ColumnDetectorService {
 
   private isQuestionHeader(h: string): boolean {
     const norm = h.toLowerCase().trim().replace(/\*/g, '');
-    return ['question', 'سؤال', 'السؤال', 'نص السؤال', 'أسئلة', 'الأسئلة'].some(p => norm.includes(p));
+    // Match English ('question', 'questions', 'q.', 'q_text') and Arabic ('السؤال', 'سؤال', 'نص السؤال', 'أسئلة', 'الأسئلة')
+    return [
+      'question', 'questions', 'q.', 'q_text', 'qtitle', 'question text', 'question body',
+      'السؤال', 'سؤال', 'نص السؤال', 'أسئلة', 'الأسئلة', 'سؤال تعليمي', 'مضمون السؤال'
+    ].some(p => norm.includes(p));
   }
 
   private isChoiceHeader(h: string): boolean {
@@ -96,21 +99,24 @@ export class ColumnDetectorService {
 
   private isAnswerHeader(h: string): boolean {
     const norm = h.toLowerCase().trim().replace(/\*/g, '');
-    return ['correct answer', 'answer', 'correct', 'الإجابة الصحيحة', 'الحل', 'الإجابة', 'إجابة', 'الجواب'].some(p => norm.includes(p));
+    return [
+      'correct answer', 'answer', 'correct', 'solution',
+      'الإجابة الصحيحة', 'الحل', 'الإجابة', 'إجابة', 'الجواب', 'اجابة'
+    ].some(p => norm.includes(p) || norm === p);
   }
 
   private isTypeHeader(h: string): boolean {
     const norm = h.toLowerCase().trim().replace(/\*/g, '');
-    return ['qeustion type', 'question type', 'type', 'النوع'].some(p => norm.includes(p));
+    return ['qeustion type', 'question type', 'type', 'النوع', 'نوع السؤال'].some(p => norm.includes(p));
   }
 
   private isExplanationHeader(h: string): boolean {
     const norm = h.toLowerCase().trim().replace(/\*/g, '');
-    return ['explanation', 'شرح', 'التفسير'].some(p => norm.includes(p));
+    return ['explanation', 'شرح', 'التفسير', 'الشرح'].some(p => norm.includes(p));
   }
 
   private isDifficultyHeader(h: string): boolean {
     const norm = h.toLowerCase().trim().replace(/\*/g, '');
-    return norm.includes('difficulty') || norm.includes('صعوبة');
+    return norm.includes('difficulty') || norm.includes('صعوبة') || norm.includes('مستوى الصعوبة');
   }
 }
