@@ -7,7 +7,8 @@ import { SheetInfo, DetectionResult, ColumnMapping } from '../models/excel.model
 export class ColumnDetectorService {
   private knownExcludes = [
     'serial no.', 'score', 'difficulty', 'sharing range',
-    'label', 'materials and instructions', 'رقم البند', 'رقم الصفحة', 'اسم المرجع'
+    'label', 'materials and instructions', 'comprehensive questions',
+    'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'qeustion type', 'question type'
   ];
 
   detect(sheet: SheetInfo): DetectionResult {
@@ -22,13 +23,11 @@ export class ColumnDetectorService {
 
     const headers = sheet.headers;
 
-    // Pass 1: Detect explicit headers by priority
+    // Pass 1: Detect explicit metadata/answer/type/explanation headers
     headers.forEach((h, index) => {
       if (!h) return;
       
-      if (this.isQuestionHeader(h) && mapping.questionCol === null) {
-        mapping.questionCol = index;
-      } else if (this.isAnswerHeader(h) && mapping.correctAnswerCol === null) {
+      if (this.isAnswerHeader(h) && mapping.correctAnswerCol === null) {
         mapping.correctAnswerCol = index;
       } else if (this.isTypeHeader(h) && mapping.typeCol === null) {
         mapping.typeCol = index;
@@ -38,10 +37,12 @@ export class ColumnDetectorService {
         mapping.choiceCols.push(index);
       } else if (this.isDifficultyHeader(h) && mapping.difficultyCol === null) {
         mapping.difficultyCol = index;
+      } else if (this.isQuestionHeader(h) && mapping.questionCol === null) {
+        mapping.questionCol = index;
       }
     });
 
-    // Pass 2: Fallback detection for Question column if header is dynamic or unlabelled
+    // Pass 2: Fallback detection for Question column if header is dynamic/title-based
     if (mapping.questionCol === null) {
       headers.forEach((h, index) => {
         if (!h || mapping.questionCol !== null) return;
@@ -60,10 +61,31 @@ export class ColumnDetectorService {
       });
     }
 
+    // Pass 3: Fallback for Choice columns if choice columns don't have explicit headers
+    if (mapping.choiceCols.length === 0 && sheet.rows.length > 0) {
+      // Find maximum number of columns across data rows
+      const maxCols = Math.max(...sheet.rows.map(r => r.length));
+      for (let c = 0; c < maxCols; c++) {
+        if (c === mapping.questionCol || c === mapping.correctAnswerCol || 
+            c === mapping.typeCol || c === mapping.explanationCol || 
+            c === mapping.difficultyCol) {
+          continue;
+        }
+        const norm = (headers[c] || '').toLowerCase().trim().replace(/\*/g, '');
+        if (this.knownExcludes.some(ex => norm.includes(ex))) {
+          continue;
+        }
+        // Check if data rows have non-empty text in this column
+        const hasData = sheet.rows.some(r => r[c] !== null && r[c] !== undefined && String(r[c]).trim() !== '');
+        if (hasData) {
+          mapping.choiceCols.push(c);
+        }
+      }
+    }
+
     const hasQuestion = mapping.questionCol !== null;
     const hasAnswer = mapping.correctAnswerCol !== null;
 
-    // High confidence whenever Question and Answer columns are detected
     let confidence: 'high' | 'medium' | 'low' = 'low';
     if (hasQuestion && hasAnswer) {
       confidence = 'high';
@@ -80,11 +102,18 @@ export class ColumnDetectorService {
 
   private isQuestionHeader(h: string): boolean {
     const norm = h.toLowerCase().trim().replace(/\*/g, '');
-    // Match English ('question', 'questions', 'q.', 'q_text') and Arabic ('السؤال', 'سؤال', 'نص السؤال', 'أسئلة', 'الأسئلة')
-    return [
+    
+    // Explicitly exclude metadata columns
+    if (this.knownExcludes.some(ex => norm.includes(ex))) {
+      return false;
+    }
+
+    // Exact or strict match for question keywords
+    const matches = [
       'question', 'questions', 'q.', 'q_text', 'qtitle', 'question text', 'question body',
       'السؤال', 'سؤال', 'نص السؤال', 'أسئلة', 'الأسئلة', 'سؤال تعليمي', 'مضمون السؤال'
-    ].some(p => norm.includes(p));
+    ];
+    return matches.some(p => norm === p || norm === `*${p}` || (norm.includes(p) && !norm.includes('materials')));
   }
 
   private isChoiceHeader(h: string): boolean {
