@@ -101,6 +101,7 @@ export const en = {
     timeUsed: 'Time Used',
     reviewAnswers: 'Review Answers',
     retryQuiz: 'Retry Quiz',
+    retakeWrong: 'Retake Wrong Questions',
     backHome: 'Back Home',
     newFile: 'Upload New File'
   },

@@ -17,6 +17,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         [result]="result"
         (reviewAnswers)="onReview()"
         (retryQuiz)="onRetry()"
+        (retakeWrong)="onRetakeWrong()"
         (backHome)="onHome()"
         (newFile)="onNewFile()">
       </app-result-dashboard>
@@ -45,7 +46,15 @@ export class ResultsPageComponent implements OnInit {
   }
 
   onRetry() {
-    this.router.navigate(['/settings']);
+    this.quizStateService.retryQuiz();
+    this.router.navigate(['/quiz']);
+  }
+
+  onRetakeWrong() {
+    const success = this.quizStateService.retakeWrongQuestions();
+    if (success) {
+      this.router.navigate(['/quiz']);
+    }
   }
 
   onHome() {

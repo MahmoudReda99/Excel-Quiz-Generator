@@ -35,37 +35,53 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div class="bg-green-50 rounded-xl p-4 text-center">
-          <div class="text-green-500 text-sm font-bold mb-1">{{ 'results.correct' | translate }}</div>
-          <div class="text-2xl font-bold text-green-700">{{ result.correctCount }}</div>
+        <div class="bg-green-50 rounded-xl p-4 text-center border border-green-200">
+          <div class="text-green-600 text-xs font-bold mb-1 uppercase tracking-wider">{{ 'results.correct' | translate }}</div>
+          <div class="text-2xl font-black text-green-700">{{ result.correctCount }}</div>
         </div>
-        <div class="bg-red-50 rounded-xl p-4 text-center">
-          <div class="text-red-500 text-sm font-bold mb-1">{{ 'results.wrong' | translate }}</div>
-          <div class="text-2xl font-bold text-red-700">{{ result.wrongCount }}</div>
+        <div class="bg-rose-50 rounded-xl p-4 text-center border border-rose-200">
+          <div class="text-rose-600 text-xs font-bold mb-1 uppercase tracking-wider">{{ 'results.wrong' | translate }}</div>
+          <div class="text-2xl font-black text-rose-700">{{ result.wrongCount }}</div>
         </div>
-        <div class="bg-gray-100 rounded-xl p-4 text-center">
-          <div class="text-gray-500 text-sm font-bold mb-1">{{ 'results.unanswered' | translate }}</div>
-          <div class="text-2xl font-bold text-gray-700">{{ result.unansweredCount }}</div>
+        <div class="bg-gray-100 rounded-xl p-4 text-center border border-gray-200">
+          <div class="text-gray-600 text-xs font-bold mb-1 uppercase tracking-wider">{{ 'results.unanswered' | translate }}</div>
+          <div class="text-2xl font-black text-gray-700">{{ result.unansweredCount }}</div>
         </div>
-        <div class="bg-blue-50 rounded-xl p-4 text-center">
-          <div class="text-blue-500 text-sm font-bold mb-1">{{ 'results.timeUsed' | translate }}</div>
-          <div class="text-2xl font-bold text-blue-700">{{ formatTime(result.timeUsed) }}</div>
+        <div class="bg-blue-50 rounded-xl p-4 text-center border border-blue-200">
+          <div class="text-blue-600 text-xs font-bold mb-1 uppercase tracking-wider">{{ 'results.timeUsed' | translate }}</div>
+          <div class="text-2xl font-black text-blue-700">{{ formatTime(result.timeUsed) }}</div>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button (click)="reviewAnswers.emit()" class="py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium transition-colors">
-          {{ 'results.reviewAnswers' | translate }}
+      <!-- Action Buttons -->
+      <div class="space-y-3">
+        <!-- Retake Wrong Questions (Only visible if wrong/unanswered questions exist) -->
+        <button 
+          *ngIf="hasWrongOrUnanswered"
+          (click)="retakeWrong.emit()" 
+          class="w-full py-4 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2">
+          <span>🔄</span>
+          <span>{{ 'results.retakeWrong' | translate }} ({{ result.wrongCount + result.unansweredCount }})</span>
         </button>
-        <button (click)="retryQuiz.emit()" class="py-3 px-4 bg-white hover:bg-gray-50 text-primary-600 border border-primary-600 rounded-xl font-medium transition-colors">
-          {{ 'results.retryQuiz' | translate }}
-        </button>
-        <button (click)="backHome.emit()" class="py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-medium transition-colors">
-          {{ 'results.backHome' | translate }}
-        </button>
-        <button (click)="newFile.emit()" class="py-3 px-4 bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 rounded-xl font-medium transition-colors">
-          {{ 'results.newFile' | translate }}
-        </button>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button (click)="reviewAnswers.emit()" class="py-3.5 px-4 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold transition-colors">
+            {{ 'results.reviewAnswers' | translate }}
+          </button>
+
+          <button (click)="retryQuiz.emit()" class="py-3.5 px-4 bg-white hover:bg-gray-50 text-primary-600 border-2 border-primary-600 rounded-xl font-bold transition-colors">
+            {{ 'results.retryQuiz' | translate }}
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+          <button (click)="backHome.emit()" class="py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold transition-colors">
+            {{ 'results.backHome' | translate }}
+          </button>
+          <button (click)="newFile.emit()" class="py-3 px-4 bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 rounded-xl font-bold transition-colors">
+            {{ 'results.newFile' | translate }}
+          </button>
+        </div>
       </div>
     </div>
   `
@@ -74,8 +90,14 @@ export class ResultDashboardComponent {
   @Input() result!: QuizResult;
   @Output() reviewAnswers = new EventEmitter<void>();
   @Output() retryQuiz = new EventEmitter<void>();
+  @Output() retakeWrong = new EventEmitter<void>();
   @Output() backHome = new EventEmitter<void>();
   @Output() newFile = new EventEmitter<void>();
+
+  get hasWrongOrUnanswered(): boolean {
+    if (!this.result) return false;
+    return (this.result.wrongCount + this.result.unansweredCount) > 0;
+  }
 
   get circumference(): number {
     return 2 * Math.PI * 45;

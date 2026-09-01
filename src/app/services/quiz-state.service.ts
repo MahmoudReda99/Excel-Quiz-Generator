@@ -3,6 +3,7 @@ import { BehaviorSubject } from 'rxjs';
 import { ExcelData, ColumnMapping, DetectionResult, ValidationResult } from '../models/excel.model';
 import { QuizQuestion, QuizState, QuizConfig, QuizResult } from '../models/quiz.model';
 import { ScorerService } from './scorer.service';
+import { AnswerNormalizerService } from './answer-normalizer.service';
 
 @Injectable({
   providedIn: 'root'
@@ -36,7 +37,10 @@ export class QuizStateService {
   
   public quizState$ = new BehaviorSubject<QuizState>(this.defaultState);
 
-  constructor(private scorerService: ScorerService) {}
+  constructor(
+    private scorerService: ScorerService,
+    private normalizer: AnswerNormalizerService
+  ) {}
 
   setExcelData(data: ExcelData): void {
     this.excelData$.next(data);
@@ -164,6 +168,37 @@ export class QuizStateService {
       startTime: new Date(),
       result: null
     });
+  }
+
+  retakeWrongQuestions(): boolean {
+    const state = this.quizState$.value;
+    if (!state.result) return false;
+
+    // Filter to questions that were incorrect or unanswered
+    const wrongQuestions = state.questions.filter(q => {
+      if (q.userAnswer === null || q.userAnswer === undefined) return true;
+      if (Array.isArray(q.userAnswer) && q.userAnswer.length === 0) return true;
+      return !this.normalizer.isCorrect(q.userAnswer, q.correctAnswer, q.type);
+    }).map(q => {
+      const newQ = { ...q, userAnswer: null };
+      if (state.config.randomizeAnswers && newQ.choices && newQ.choices.length > 0) {
+        newQ.choices = this.shuffleArray(newQ.choices);
+      }
+      return newQ;
+    });
+
+    if (wrongQuestions.length === 0) return false;
+
+    this.quizState$.next({
+      ...state,
+      status: 'active',
+      currentIndex: 0,
+      questions: wrongQuestions,
+      startTime: new Date(),
+      result: null
+    });
+
+    return true;
   }
 
   getResult(): QuizResult | null {

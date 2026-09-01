@@ -100,7 +100,8 @@ export const ar = {
     unanswered: 'أسئلة متروكة',
     timeUsed: 'الوقت المستغرق',
     reviewAnswers: 'مراجعة الإجابات التفصيلية',
-    retryQuiz: 'إعادة الاختبار',
+    retryQuiz: 'إعادة الاختبار كامل',
+    retakeWrong: 'إعادة الأسئلة الخاطئة فقط',
     backHome: 'الرئيسية',
     newFile: 'اختبار من ملف جديد'
   },
