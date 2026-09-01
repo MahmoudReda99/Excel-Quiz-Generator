@@ -8,30 +8,38 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   imports: [CommonModule, TranslatePipe],
   template: `
     <div 
-      class="border-2 border-dashed rounded-lg p-10 text-center transition-colors"
-      [class.border-blue-500]="isDragging"
-      [class.bg-blue-50]="isDragging"
+      class="border-3 border-dashed rounded-2xl p-8 md:p-12 text-center transition-all cursor-pointer bg-white shadow-sm hover:shadow-md hover:border-primary-400"
+      [class.border-primary-500]="isDragging"
+      [class.bg-primary-50]="isDragging"
       [class.border-gray-300]="!isDragging"
       (dragover)="onDragOver($event)"
       (dragleave)="onDragLeave($event)"
       (drop)="onDrop($event)"
+      (click)="fileInput.click()"
     >
-      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-      </svg>
-      <p class="mt-4 text-sm text-gray-600">{{ 'upload.dragDrop' | translate }}</p>
-      <div class="mt-6">
+      <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center text-3xl">
+        📁
+      </div>
+      
+      <h3 class="text-xl font-bold text-gray-900 mb-1">
+        {{ 'upload.dragDrop' | translate }}
+      </h3>
+      <p class="text-xs font-semibold text-gray-500 mb-4">
+        (يمكنك إختيار أو سحب أكثر من ملف إكسل في نفس الوقت للدمج)
+      </p>
+
+      <div class="mt-4 inline-flex items-center gap-2">
         <input
           type="file"
           #fileInput
           class="hidden"
+          multiple
           accept=".xlsx,.xls"
           (change)="onFileSelected($event)"
         />
         <button
           type="button"
-          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          (click)="fileInput.click()"
+          class="btn-primary py-3 px-6 text-sm font-bold shadow-md hover:shadow-lg transition-all"
         >
           {{ 'upload.chooseFile' | translate }}
         </button>
@@ -40,6 +48,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   `
 })
 export class FileUploadComponent {
+  @Output() filesSelected = new EventEmitter<File[]>();
   @Output() fileSelected = new EventEmitter<File>();
   isDragging = false;
 
@@ -60,11 +69,18 @@ export class FileUploadComponent {
     event.stopPropagation();
     this.isDragging = false;
     
-    const files = event.dataTransfer?.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        this.fileSelected.emit(file);
+    const filesList = event.dataTransfer?.files;
+    if (filesList && filesList.length > 0) {
+      const validFiles: File[] = [];
+      for (let i = 0; i < filesList.length; i++) {
+        const file = filesList[i];
+        if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+          validFiles.push(file);
+        }
+      }
+      if (validFiles.length > 0) {
+        this.filesSelected.emit(validFiles);
+        this.fileSelected.emit(validFiles[0]);
       }
     }
   }
@@ -72,7 +88,17 @@ export class FileUploadComponent {
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
-      this.fileSelected.emit(input.files[0]);
+      const validFiles: File[] = [];
+      for (let i = 0; i < input.files.length; i++) {
+        const file = input.files[i];
+        if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+          validFiles.push(file);
+        }
+      }
+      if (validFiles.length > 0) {
+        this.filesSelected.emit(validFiles);
+        this.fileSelected.emit(validFiles[0]);
+      }
     }
   }
 }

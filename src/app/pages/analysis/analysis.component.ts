@@ -27,15 +27,33 @@ import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
   template: `
     <div class="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-8" *ngIf="excelData">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 class="text-2xl font-bold text-gray-900">{{ 'analysis.title' | translate }}</h2>
+        <div>
+          <h2 class="text-2xl font-black text-gray-900">{{ 'analysis.title' | translate }}</h2>
+          <p *ngIf="excelData.isMultiFile" class="text-xs font-bold text-primary-700 mt-1">
+            📚 تم دمج {{ excelData.files?.length }} ملفات إكسل مخصصة في بنك أسئلة موحد
+          </p>
+        </div>
         
-        <div *ngIf="dataSheets.length > 1" class="flex items-center gap-2">
-          <label class="text-sm font-bold text-gray-700">{{ 'upload.sheets' | translate }}:</label>
+        <div *ngIf="dataSheets.length > 1" class="flex items-center gap-2 w-full sm:w-auto">
+          <label class="text-sm font-bold text-gray-700 whitespace-nowrap">{{ 'upload.sheets' | translate }}:</label>
           <select [(ngModel)]="selectedSheetIndex" (ngModelChange)="onSheetChange()" 
-                  class="block w-64 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-xl border bg-white shadow-sm font-semibold text-gray-800">
-            <option [ngValue]="-1">🌟 جميع الأوراق مدمجة (All Sheets Combined)</option>
+                  class="block w-full sm:w-72 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-xl border bg-white shadow-sm font-semibold text-gray-800">
+            <option [ngValue]="-1">🌟 دمج جميع الملفات والأوراق (All Combined)</option>
             <option *ngFor="let sheet of dataSheets; let i = index" [ngValue]="i">{{ sheet.name }} ({{ sheet.rowCount }} أسئلة)</option>
           </select>
+        </div>
+      </div>
+
+      <!-- Multi-File Summary Banner -->
+      <div *ngIf="excelData.isMultiFile && isCombinedMode" class="card bg-blue-50 border-blue-200 p-4 space-y-2">
+        <h4 class="font-bold text-blue-900 text-sm flex items-center gap-2">
+          <span>📦</span> الملفات المدمجة في هذا الاختبار:
+        </h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs font-semibold">
+          <div *ngFor="let f of excelData.files" class="bg-white p-2.5 rounded-lg border border-blue-200 text-blue-950 flex items-center justify-between">
+            <span class="truncate me-1">📄 {{ f.fileName }}</span>
+            <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0">{{ f.sheetCount }} أوراق</span>
+          </div>
         </div>
       </div>
 
@@ -47,7 +65,7 @@ import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span class="font-medium">
-            {{ isCombinedMode ? 'تم دمج جميع الأوراق واكتشاف الأسئلة بنجاح' : ('analysis.autoDetected' | translate) }}
+            {{ isCombinedMode ? 'تم اكتشاف ودمج جميع أسئلة الملفات بنجاح' : ('analysis.autoDetected' | translate) }}
           </span>
         </div>
         <button type="button" class="text-sm font-medium text-primary-600 hover:text-primary-500" (click)="showManualMapping = true">
@@ -116,7 +134,7 @@ export class AnalysisComponent implements OnInit {
   private router = inject(Router);
 
   excelData: ExcelData | null = null;
-  selectedSheetIndex = -1; // Default -1 = Combined Mode (all sheets)
+  selectedSheetIndex = -1; // Default -1 = Combined Mode (all sheets & files)
   dataSheets: SheetInfo[] = [];
   currentSheet: SheetInfo | null = null;
   
@@ -144,7 +162,7 @@ export class AnalysisComponent implements OnInit {
     this.excelData = data;
     this.dataSheets = data.sheets.filter(s => s.rowCount > 0);
     if (this.dataSheets.length > 0) {
-      this.selectedSheetIndex = this.dataSheets.length > 1 ? -1 : 0;
+      this.selectedSheetIndex = (this.dataSheets.length > 1 || data.isMultiFile) ? -1 : 0;
       this.loadSheetData();
     }
   }

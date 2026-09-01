@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import * as XLSX from 'xlsx';
-import { ExcelData, SheetInfo } from '../models/excel.model';
+import { ExcelData, SheetInfo, UploadedFileInfo } from '../models/excel.model';
 
 @Injectable({
   providedIn: 'root'
@@ -21,14 +21,18 @@ export class ExcelParserService {
           const workbook = XLSX.read(data, { type: 'array' });
           
           const sheets: SheetInfo[] = workbook.SheetNames.map((sheetName, index) => {
-            return this.getSheetData(workbook, index);
+            const sheetData = this.getSheetData(workbook, index);
+            sheetData.fileName = file.name;
+            return sheetData;
           });
           
           resolve({
             fileName: file.name,
             fileSize: file.size,
             sheets,
-            selectedSheet: 0
+            selectedSheet: 0,
+            files: [{ fileName: file.name, fileSize: file.size, sheetCount: sheets.filter(s => s.rowCount > 0).length }],
+            isMultiFile: false
           });
         } catch (error) {
           reject(error);
@@ -41,6 +45,48 @@ export class ExcelParserService {
       
       reader.readAsArrayBuffer(file);
     });
+  }
+
+  async readMultipleFiles(files: File[]): Promise<ExcelData> {
+    if (files.length === 1) {
+      return this.readFile(files[0]);
+    }
+
+    const parsedList = await Promise.all(files.map(f => this.readFile(f)));
+    
+    let allSheets: SheetInfo[] = [];
+    const filesInfo: UploadedFileInfo[] = [];
+    let totalSize = 0;
+
+    parsedList.forEach((parsed) => {
+      totalSize += parsed.fileSize;
+      const validSheets = parsed.sheets.filter(s => s.rowCount > 0);
+      filesInfo.push({
+        fileName: parsed.fileName,
+        fileSize: parsed.fileSize,
+        sheetCount: validSheets.length
+      });
+
+      validSheets.forEach((sheet) => {
+        allSheets.push({
+          ...sheet,
+          name: `${parsed.fileName} -> ${sheet.name}`,
+          index: allSheets.length,
+          fileName: parsed.fileName
+        });
+      });
+    });
+
+    const displayTitle = `دمج ${files.length} ملفات إكسل مخصصة`;
+
+    return {
+      fileName: displayTitle,
+      fileSize: totalSize,
+      sheets: allSheets,
+      selectedSheet: -1,
+      files: filesInfo,
+      isMultiFile: true
+    };
   }
 
   getSheetData(workbook: XLSX.WorkBook, sheetIndex: number): SheetInfo {

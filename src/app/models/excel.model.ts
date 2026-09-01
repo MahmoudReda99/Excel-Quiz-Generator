@@ -1,8 +1,16 @@
+export interface UploadedFileInfo {
+  fileName: string;
+  fileSize: number;
+  sheetCount: number;
+}
+
 export interface ExcelData {
   fileName: string;
   fileSize: number;
   sheets: SheetInfo[];
   selectedSheet: number;
+  files?: UploadedFileInfo[];
+  isMultiFile?: boolean;
 }
 
 export interface SheetInfo {
@@ -12,6 +20,7 @@ export interface SheetInfo {
   rows: any[][];
   rowCount: number;
   colCount: number;
+  fileName?: string;
 }
 
 export interface ColumnMapping {
