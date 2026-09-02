@@ -25,5 +25,18 @@
 <body>
   <app-root></app-root>
   <noscript>Please enable JavaScript to run Excel Quiz Generator offline.</noscript>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/ngsw-worker.js', { scope: '/' })
+          .then(function(reg) {
+            console.log('ServiceWorker registered for iOS Safari:', reg.scope);
+          })
+          .catch(function(err) {
+            console.warn('ServiceWorker registration fallback:', err);
+          });
+      });
+    }
+  </script>
 </body>
 </html>
