@@ -17,8 +17,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       (drop)="onDrop($event)"
       (click)="fileInput.click()"
     >
-      <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center text-3xl">
-        📁
+      <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-primary-50 p-2.5 flex items-center justify-center shadow-sm border border-primary-100">
+        <img src="assets/logo.png" alt="Quiz Generator Logo" class="w-full h-full object-contain" />
       </div>
       
       <h3 class="text-xl font-bold text-gray-900 mb-1">

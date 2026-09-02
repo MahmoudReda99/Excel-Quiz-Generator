@@ -15,8 +15,9 @@ import { LanguageSwitchComponent } from '../language-switch/language-switch.comp
       <header class="bg-white shadow-sm border-b border-gray-200">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <a routerLink="/" class="text-lg md:text-xl font-bold text-primary-600 hover:text-primary-700 transition-colors">
-              {{ 'app.title' | translate }}
+            <a routerLink="/" class="flex items-center gap-2.5 text-lg md:text-xl font-black text-primary-600 hover:text-primary-700 transition-colors">
+              <img src="assets/logo.png" alt="Quiz Generator Logo" class="w-9 h-9 object-contain flex-shrink-0" />
+              <span>{{ 'app.title' | translate }}</span>
             </a>
 
             <!-- PWA Offline Badge -->
@@ -47,7 +48,10 @@ import { LanguageSwitchComponent } from '../language-switch/language-switch.comp
       
       <footer class="bg-white border-t border-gray-200 py-6 mt-auto">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-500 flex flex-col sm:flex-row justify-between items-center gap-2">
-          <span>Excel Quiz Generator &copy; 2026 — 100% Client-Side Offline PWA</span>
+          <span class="flex items-center gap-2">
+            <img src="assets/logo.png" alt="Logo" class="w-5 h-5 object-contain" />
+            <span>Excel Quiz Generator &copy; 2026 — 100% Client-Side Offline PWA</span>
+          </span>
           <span class="text-emerald-700 font-semibold">🔒 0 Network Calls • 100% Device Local Processing</span>
         </div>
       </footer>
