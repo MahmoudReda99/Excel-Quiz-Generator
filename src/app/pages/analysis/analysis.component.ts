@@ -101,19 +101,17 @@ import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
         </app-column-mapper>
       </div>
 
-      <!-- Preview and Validation -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8" *ngIf="allQuestions.length > 0">
-        <div>
-          <app-question-preview [questions]="previewQuestions"></app-question-preview>
-        </div>
-        <div>
-          <app-validation-report 
-            [validationResult]="validationResult"
-            (fixMapping)="showManualMapping = true"
-            (skipInvalid)="onSkipInvalid()"
-            (generateQuiz)="onGenerateQuiz()">
-          </app-validation-report>
-        </div>
+      <!-- Validation Report Section (Question Preview commented out) -->
+      <div class="max-w-2xl mx-auto w-full" *ngIf="allQuestions.length > 0">
+        <!-- Question preview commented out as requested -->
+        <!-- <app-question-preview [questions]="previewQuestions"></app-question-preview> -->
+
+        <app-validation-report 
+          [validationResult]="validationResult"
+          (fixMapping)="showManualMapping = true"
+          (skipInvalid)="onSkipInvalid()"
+          (generateQuiz)="onGenerateQuiz()">
+        </app-validation-report>
       </div>
 
       <!-- No questions message -->
