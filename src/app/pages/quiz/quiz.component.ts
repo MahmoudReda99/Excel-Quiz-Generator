@@ -23,30 +23,15 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   ],
   template: `
     <div class="container mx-auto px-4 py-6 max-w-5xl space-y-6" *ngIf="quizState">
-      <!-- Top Bar: Progress & Mode -->
-      <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 rounded-xl bg-primary-50 text-primary-600 font-extrabold flex items-center justify-center text-lg">
-            {{ currentIndex + 1 }}
-          </div>
-          <div>
-            <div class="text-sm font-semibold text-gray-500 uppercase tracking-wider">
-              {{ 'quiz.question' | translate }} {{ currentIndex + 1 }} {{ 'quiz.of' | translate }} {{ quizState.questions.length }}
-            </div>
-            <div class="text-xs text-gray-400 font-medium">
-              {{ 'settings.exam' | translate }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Timer Display -->
-        <div *ngIf="hasTimer" class="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200">
+      <!-- Timer Bar (Only if timer is active) -->
+      <div *ngIf="hasTimer" class="flex justify-end">
+        <div class="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
           <span class="text-xl">⏱️</span>
           <app-timer></app-timer>
         </div>
       </div>
 
-      <!-- Animated Progress Bar -->
+      <!-- Animated Progress Bar (Main Header Indicator) -->
       <app-progress-bar 
         [current]="currentIndex + 1" 
         [total]="quizState.questions.length"

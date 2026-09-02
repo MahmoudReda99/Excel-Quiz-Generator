@@ -6,14 +6,16 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="w-full">
-      <div class="flex justify-between items-center mb-1 text-sm font-medium text-gray-700">
-        <span>{{ current }} / {{ total }}</span>
+    <div class="w-full space-y-1.5">
+      <div class="flex justify-between items-center text-xs sm:text-sm font-bold text-gray-700">
         <span>{{ percentage }}%</span>
+        <span dir="ltr" class="font-mono text-xs bg-primary-50 text-primary-800 border border-primary-200 px-2.5 py-0.5 rounded-md shadow-xs">
+          {{ current }} / {{ total }}
+        </span>
       </div>
-      <div class="w-full bg-gray-200 rounded-full h-2.5">
+      <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner">
         <div 
-          class="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out" 
+          class="bg-primary-600 h-3 rounded-full transition-all duration-300 ease-out" 
           [style.width.%]="percentage">
         </div>
       </div>
