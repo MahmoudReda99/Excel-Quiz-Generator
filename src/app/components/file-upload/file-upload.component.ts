@@ -8,7 +8,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   imports: [CommonModule, TranslatePipe],
   template: `
     <div 
-      class="border-3 border-dashed rounded-2xl p-8 md:p-12 text-center transition-all cursor-pointer bg-white shadow-sm hover:shadow-md hover:border-primary-400"
+      class="border-3 border-dashed rounded-2xl p-8 md:p-12 text-center transition-all cursor-pointer bg-white shadow-sm hover:shadow-md hover:border-primary-400 select-none"
       [class.border-primary-500]="isDragging"
       [class.bg-primary-50]="isDragging"
       [class.border-gray-300]="!isDragging"
@@ -34,7 +34,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           #fileInput
           class="hidden"
           multiple
-          accept=".xlsx,.xls"
+          accept=".xlsx,.xls,.XLSX,.XLS,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/octet-stream"
           (change)="onFileSelected($event)"
         />
         <button
@@ -51,6 +51,20 @@ export class FileUploadComponent {
   @Output() filesSelected = new EventEmitter<File[]>();
   @Output() fileSelected = new EventEmitter<File>();
   isDragging = false;
+
+  private isExcelFile(file: File): boolean {
+    if (!file) return false;
+    const name = (file.name || '').toLowerCase();
+    const type = (file.type || '').toLowerCase();
+    return (
+      name.endsWith('.xlsx') || 
+      name.endsWith('.xls') || 
+      type.includes('sheet') || 
+      type.includes('excel') || 
+      type === 'application/octet-stream' ||
+      type === ''
+    );
+  }
 
   onDragOver(event: DragEvent) {
     event.preventDefault();
@@ -74,7 +88,7 @@ export class FileUploadComponent {
       const validFiles: File[] = [];
       for (let i = 0; i < filesList.length; i++) {
         const file = filesList[i];
-        if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        if (this.isExcelFile(file)) {
           validFiles.push(file);
         }
       }
@@ -91,7 +105,7 @@ export class FileUploadComponent {
       const validFiles: File[] = [];
       for (let i = 0; i < input.files.length; i++) {
         const file = input.files[i];
-        if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        if (this.isExcelFile(file)) {
           validFiles.push(file);
         }
       }
