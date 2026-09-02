@@ -60,25 +60,7 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
             *ngFor="let q of questions; let i = index"
             [hidden]="!shouldShowQuestion(i, q)"
             (click)="navigate.emit(i)"
-            class="h-10 rounded-xl font-extrabold text-sm flex items-center justify-center transition-all duration-150 relative select-none"
-            [class.ring-4]="currentIndex === i"
-            [class.ring-primary-400]="currentIndex === i"
-            [class.ring-offset-2]="currentIndex === i"
-            [class.scale-105]="currentIndex === i"
-            [class.z-10]="currentIndex === i"
-            
-            [class.bg-emerald-600]="isCorrect(q)"
-            [class.text-white]="isCorrect(q) || isWrong(q) || currentIndex === i"
-            [class.hover:bg-emerald-700]="isCorrect(q)"
-
-            [class.bg-rose-600]="isWrong(q)"
-            [class.hover:bg-rose-700]="isWrong(q)"
-
-            [class.bg-white]="!isAnswered(q) && currentIndex !== i"
-            [class.border]="!isAnswered(q) && currentIndex !== i"
-            [class.border-gray-300]="!isAnswered(q) && currentIndex !== i"
-            [class.text-gray-800]="!isAnswered(q) && currentIndex !== i"
-            [class.hover:bg-gray-100]="!isAnswered(q) && currentIndex !== i">
+            [ngClass]="getQuestionClass(q, i)">
             <span>{{ i + 1 }}</span>
           </button>
         </div>
@@ -151,5 +133,33 @@ export class QuestionNavigatorComponent implements OnChanges {
     if (this.activeFilter === 'wrong') return this.isWrong(q);
     if (this.activeFilter === 'unanswered') return !this.isAnswered(q);
     return true;
+  }
+
+  getQuestionClass(q: QuizQuestion, index: number): string {
+    const isCurrent = this.currentIndex === index;
+    const isCorr = this.isCorrect(q);
+    const isWr = this.isWrong(q);
+
+    const base = 'h-10 rounded-xl font-extrabold text-sm flex items-center justify-center transition-all duration-150 relative select-none cursor-pointer ';
+
+    if (isCurrent) {
+      const ring = 'ring-4 ring-primary-400 ring-offset-2 scale-105 z-10 ';
+      if (isCorr) {
+        return base + ring + 'bg-emerald-600 text-white hover:bg-emerald-700';
+      }
+      if (isWr) {
+        return base + ring + 'bg-rose-600 text-white hover:bg-rose-700';
+      }
+      return base + ring + 'bg-primary-600 text-white hover:bg-primary-700';
+    }
+
+    if (isCorr) {
+      return base + 'bg-emerald-600 text-white hover:bg-emerald-700';
+    }
+    if (isWr) {
+      return base + 'bg-rose-600 text-white hover:bg-rose-700';
+    }
+
+    return base + 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-100 hover:text-gray-900';
   }
 }
