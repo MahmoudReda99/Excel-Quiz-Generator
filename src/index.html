@@ -28,12 +28,12 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/ngsw-worker.js', { scope: '/' })
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
           .then(function(reg) {
-            console.log('ServiceWorker registered for iOS Safari:', reg.scope);
+            console.log('PWA ServiceWorker registered successfully for iOS/Android:', reg.scope);
           })
           .catch(function(err) {
-            console.warn('ServiceWorker registration fallback:', err);
+            navigator.serviceWorker.register('/ngsw-worker.js', { scope: '/' });
           });
       });
     }
