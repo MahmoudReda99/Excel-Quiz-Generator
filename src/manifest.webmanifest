@@ -2,7 +2,7 @@
   "name": "Excel Quiz Generator",
   "short_name": "Quiz Generator",
   "description": "Generate interactive quizzes from Excel files offline on any device",
-  "start_url": "/index.html",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f8fafc",
