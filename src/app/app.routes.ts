@@ -1,29 +1,35 @@
 import { Routes } from '@angular/router';
+import { AnalysisComponent } from './pages/analysis/analysis.component';
+import { HomeComponent } from './pages/home/home.component';
+import { QuizPageComponent } from './pages/quiz/quiz.component';
+import { ResultsPageComponent } from './pages/results/results.component';
+import { ReviewPageComponent } from './pages/review/review.component';
+import { SettingsPageComponent } from './pages/settings/settings.component';
 
 export const routes: Routes = [
   {
     path: '',
-    loadComponent: () => import('./pages/home/home.component').then(m => m.HomeComponent),
+    component: HomeComponent,
   },
   {
     path: 'analysis',
-    loadComponent: () => import('./pages/analysis/analysis.component').then(m => m.AnalysisComponent),
+    component: AnalysisComponent,
   },
   {
     path: 'settings',
-    loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsPageComponent),
+    component: SettingsPageComponent,
   },
   {
     path: 'quiz',
-    loadComponent: () => import('./pages/quiz/quiz.component').then(m => m.QuizPageComponent),
+    component: QuizPageComponent,
   },
   {
     path: 'results',
-    loadComponent: () => import('./pages/results/results.component').then(m => m.ResultsPageComponent),
+    component: ResultsPageComponent,
   },
   {
     path: 'review',
-    loadComponent: () => import('./pages/review/review.component').then(m => m.ReviewPageComponent),
+    component: ReviewPageComponent,
   },
   {
     path: '**',

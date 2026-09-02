@@ -7,6 +7,12 @@ import { QuizStateService } from '../../services/quiz-state.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { ExcelData } from '../../models/excel.model';
 
+interface SelectedExcelFile {
+  file: File;
+  buffer: ArrayBuffer | null;
+  readPromise: Promise<ArrayBuffer>;
+}
+
 @Component({
   selector: 'app-home',
   standalone: true,
@@ -40,12 +46,15 @@ import { ExcelData } from '../../models/excel.model';
 
           <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
             <div 
-              *ngFor="let file of selectedFiles; let i = index" 
+              *ngFor="let selected of selectedFiles; let i = index" 
               class="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-800">
               <div class="flex items-center gap-2.5 truncate me-2">
                 <span class="text-lg">📊</span>
-                <span class="truncate">{{ file.name }}</span>
-                <span class="text-xs text-gray-400 font-normal">({{ formatSize(file.size) }})</span>
+                <span class="truncate">{{ selected.file.name }}</span>
+                <span class="text-xs text-gray-400 font-normal">({{ formatSize(selected.file.size) }})</span>
+                <span *ngIf="!selected.buffer" class="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                  تجهيز
+                </span>
               </div>
               <button 
                 (click)="removeFile(i)" 
@@ -61,10 +70,14 @@ import { ExcelData } from '../../models/excel.model';
               class="btn-primary text-base font-bold px-10 py-4 w-full sm:w-auto shadow-md hover:shadow-lg transition-all"
               [disabled]="isLoading"
               (click)="analyzeFiles()"
+              (touchend)="analyzeFiles($event)"
             >
-              <span>🚀</span>
-              <span>{{ selectedFiles.length > 1 ? 'دمج وتحليل الملفات المختارة' : ('upload.analyze' | translate) }}</span>
+              <span>{{ isLoading ? '⏳' : '🚀' }}</span>
+              <span>{{ isLoading ? 'جاري التحليل...' : (selectedFiles.length > 1 ? 'دمج وتحليل الملفات المختارة' : ('upload.analyze' | translate)) }}</span>
             </button>
+            <p *ngIf="progressMessage" class="text-xs font-bold text-gray-500 text-center">
+              {{ progressMessage }}
+            </p>
           </div>
         </div>
 
@@ -85,16 +98,37 @@ export class HomeComponent {
   private quizState = inject(QuizStateService);
   private router = inject(Router);
 
-  selectedFiles: File[] = [];
+  selectedFiles: SelectedExcelFile[] = [];
   isLoading = false;
   errorMessage = '';
+  progressMessage = '';
 
   onFilesSelected(files: File[]) {
     // Append new files avoiding duplicates by name
-    const existingNames = new Set(this.selectedFiles.map(f => f.name));
+    const existingNames = new Set(this.selectedFiles.map(selected => selected.file.name));
     files.forEach(f => {
       if (!existingNames.has(f.name)) {
-        this.selectedFiles.push(f);
+        this.progressMessage = `جاري تجهيز ${f.name}...`;
+        const selected: SelectedExcelFile = {
+          file: f,
+          buffer: null,
+          readPromise: this.excelParser.readFileBuffer(f)
+        };
+
+        selected.readPromise
+          .then(buffer => {
+            selected.buffer = buffer;
+            this.progressMessage = `تم تجهيز ${f.name}. اضغط تحليل الملف.`;
+          })
+          .catch(error => {
+            console.error('Error preparing file:', error);
+            this.progressMessage = '';
+            this.errorMessage = error instanceof Error && error.message
+              ? error.message
+              : 'تعذر تجهيز ملف الإكسل على هذا الجهاز. حاول اختيار الملف من On My iPhone بعد تنزيله.';
+          });
+
+        this.selectedFiles.push(selected);
       }
     });
     this.errorMessage = '';
@@ -114,21 +148,83 @@ export class HomeComponent {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
-  async analyzeFiles() {
-    if (this.selectedFiles.length === 0) return;
+  async analyzeFiles(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    if (this.selectedFiles.length === 0 || this.isLoading) return;
     
     this.isLoading = true;
     this.errorMessage = '';
+    this.progressMessage = 'تم الضغط على زر التحليل...';
 
     try {
-      const mergedData = await this.excelParser.readMultipleFiles(this.selectedFiles);
+      this.progressMessage = 'جاري التأكد من جاهزية الملف...';
+      const preparedFiles = await Promise.all(
+        this.selectedFiles.map(async selected => ({
+          file: selected.file,
+          buffer: selected.buffer || await selected.readPromise
+        }))
+      );
+      this.progressMessage = 'جاري قراءة أسئلة ملف الإكسل...';
+      const mergedData = this.buildExcelData(preparedFiles);
+      this.progressMessage = `تم استخراج ${mergedData.sheets.length} ورقة. جاري فتح صفحة التحليل...`;
       this.quizState.setExcelData(mergedData);
-      this.router.navigate(['/analysis']);
+      const navigated = await this.router.navigate(['/analysis']);
+      if (!navigated) {
+        throw new Error('تم تحليل الملف، لكن لم يتم فتح صفحة التحليل. أغلق التطبيق وافتحه مرة واحدة أثناء الاتصال بالإنترنت ثم جرب مرة أخرى.');
+      }
     } catch (error) {
       console.error('Error parsing files:', error);
-      this.errorMessage = 'فشل في تحليل بعض ملفات الإكسل. يرجى التأكد من أن الملفات بصيغة .xlsx أو .xls جديدة.';
+      this.progressMessage = '';
+      this.errorMessage = error instanceof Error && error.message
+        ? error.message
+        : 'فشل في تحليل بعض ملفات الإكسل. يرجى التأكد من أن الملفات بصيغة .xlsx أو .xls جديدة.';
     } finally {
       this.isLoading = false;
     }
+  }
+
+  private buildExcelData(preparedFiles: Array<{ file: File; buffer: ArrayBuffer }>): ExcelData {
+    if (preparedFiles.length === 1) {
+      const prepared = preparedFiles[0];
+      return this.excelParser.readWorkbookBuffer(prepared.file.name, prepared.file.size, prepared.buffer);
+    }
+
+    const parsedList = preparedFiles.map(prepared =>
+      this.excelParser.readWorkbookBuffer(prepared.file.name, prepared.file.size, prepared.buffer)
+    );
+
+    let allSheets: ExcelData['sheets'] = [];
+    const filesInfo: NonNullable<ExcelData['files']> = [];
+    let totalSize = 0;
+
+    parsedList.forEach(parsed => {
+      totalSize += parsed.fileSize;
+      const validSheets = parsed.sheets.filter(sheet => sheet.rowCount > 0);
+      filesInfo.push({
+        fileName: parsed.fileName,
+        fileSize: parsed.fileSize,
+        sheetCount: validSheets.length
+      });
+
+      validSheets.forEach(sheet => {
+        allSheets.push({
+          ...sheet,
+          name: `${parsed.fileName} -> ${sheet.name}`,
+          index: allSheets.length,
+          fileName: parsed.fileName
+        });
+      });
+    });
+
+    return {
+      fileName: `دمج ${preparedFiles.length} ملفات إكسل مخصصة`,
+      fileSize: totalSize,
+      sheets: allSheets,
+      selectedSheet: -1,
+      files: filesInfo,
+      isMultiFile: true
+    };
   }
 }

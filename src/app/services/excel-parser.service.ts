@@ -6,37 +6,55 @@ import { ExcelData, SheetInfo, UploadedFileInfo } from '../models/excel.model';
   providedIn: 'root'
 })
 export class ExcelParserService {
+  private readonly readTimeoutMs = 15000;
+
   private headerKeywords = [
     'serial', 'تسلسلي', 'qeustion', 'question', 'سؤال', 'جذعية',
     'correct', 'answer', 'إجابة', 'اجابة', 'option', 'خيار', 'score', 'difficulty'
   ];
 
-  readFile(file: File): Promise<ExcelData> {
+  async readFile(file: File): Promise<ExcelData> {
+    const buffer = await this.readFileBuffer(file);
+    return this.readWorkbookBuffer(file.name, file.size, buffer);
+  }
+
+  readWorkbookBuffer(fileName: string, fileSize: number, buffer: ArrayBuffer): ExcelData {
+    const data = new Uint8Array(buffer);
+    const workbook = XLSX.read(data, { type: 'array' });
+
+    const sheets: SheetInfo[] = workbook.SheetNames.map((sheetName, index) => {
+      const sheetData = this.getSheetData(workbook, index);
+      sheetData.fileName = fileName;
+      return sheetData;
+    });
+
+    return {
+      fileName,
+      fileSize,
+      sheets,
+      selectedSheet: 0,
+      files: [{ fileName, fileSize, sheetCount: sheets.filter(s => s.rowCount > 0).length }],
+      isMultiFile: false
+    };
+  }
+
+  readFileBuffer(file: File): Promise<ArrayBuffer> {
+    const readPromise = typeof file.arrayBuffer === 'function'
+      ? file.arrayBuffer()
+      : this.readFileBufferWithFileReader(file);
+
+    return this.withTimeout(
+      readPromise,
+      `تعذر قراءة الملف "${file.name}". إذا كان الملف محفوظا على iCloud أو Google Drive، افتحه/نزله على الجهاز أولا ثم اختره مرة أخرى.`
+    );
+  }
+
+  private readFileBufferWithFileReader(file: File): Promise<ArrayBuffer> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
       reader.onload = (e: any) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          
-          const sheets: SheetInfo[] = workbook.SheetNames.map((sheetName, index) => {
-            const sheetData = this.getSheetData(workbook, index);
-            sheetData.fileName = file.name;
-            return sheetData;
-          });
-          
-          resolve({
-            fileName: file.name,
-            fileSize: file.size,
-            sheets,
-            selectedSheet: 0,
-            files: [{ fileName: file.name, fileSize: file.size, sheetCount: sheets.filter(s => s.rowCount > 0).length }],
-            isMultiFile: false
-          });
-        } catch (error) {
-          reject(error);
-        }
+        resolve(e.target.result);
       };
       
       reader.onerror = (error) => {
@@ -44,6 +62,24 @@ export class ExcelParserService {
       };
       
       reader.readAsArrayBuffer(file);
+    });
+  }
+
+  private withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        reject(new Error(message));
+      }, this.readTimeoutMs);
+
+      promise
+        .then((result) => {
+          window.clearTimeout(timeoutId);
+          resolve(result);
+        })
+        .catch((error) => {
+          window.clearTimeout(timeoutId);
+          reject(error);
+        });
     });
   }
 
