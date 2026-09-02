@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TranslatePipe } from '../../pipes/translate.pipe';
@@ -14,10 +14,20 @@ import { LanguageSwitchComponent } from '../language-switch/language-switch.comp
     <div [dir]="dir" class="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
       <header class="bg-white shadow-sm border-b border-gray-200">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div class="flex items-center gap-4">
-            <a routerLink="/" class="text-xl font-bold text-primary-600 hover:text-primary-700 transition-colors">
+          <div class="flex items-center gap-3">
+            <a routerLink="/" class="text-lg md:text-xl font-bold text-primary-600 hover:text-primary-700 transition-colors">
               {{ 'app.title' | translate }}
             </a>
+
+            <!-- PWA Offline Badge -->
+            <span *ngIf="isOffline" class="text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+              <span>📡</span>
+              <span>Off-Line</span>
+            </span>
+            <span *ngIf="!isOffline" class="hidden sm:flex text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 items-center gap-1">
+              <span>⚡</span>
+              <span>Offline Ready</span>
+            </span>
           </div>
           
           <div class="flex items-center gap-4">
@@ -36,19 +46,35 @@ import { LanguageSwitchComponent } from '../language-switch/language-switch.comp
       </main>
       
       <footer class="bg-white border-t border-gray-200 py-6 mt-auto">
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-500">
-          Excel Quiz Generator &copy; 2026 — Client-Side Local Quiz App
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-500 flex flex-col sm:flex-row justify-between items-center gap-2">
+          <span>Excel Quiz Generator &copy; 2026 — 100% Client-Side Offline PWA</span>
+          <span class="text-emerald-700 font-semibold">🔒 0 Network Calls • 100% Device Local Processing</span>
         </div>
       </footer>
     </div>
   `,
   styles: []
 })
-export class LayoutComponent {
+export class LayoutComponent implements OnInit, OnDestroy {
+  isOffline = !navigator.onLine;
+
+  private onlineHandler = () => { this.isOffline = false; };
+  private offlineHandler = () => { this.isOffline = true; };
+
   constructor(
     private languageService: LanguageService,
     private quizStateService: QuizStateService
   ) {}
+
+  ngOnInit(): void {
+    window.addEventListener('online', this.onlineHandler);
+    window.addEventListener('offline', this.offlineHandler);
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('online', this.onlineHandler);
+    window.removeEventListener('offline', this.offlineHandler);
+  }
 
   get dir(): 'rtl' | 'ltr' {
     return this.languageService.dir;
