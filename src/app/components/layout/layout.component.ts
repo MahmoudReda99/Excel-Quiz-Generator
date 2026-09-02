@@ -20,7 +20,8 @@ import { LanguageSwitchComponent } from '../language-switch/language-switch.comp
               <span>{{ 'app.title' | translate }}</span>
             </a>
 
-            <!-- PWA Offline Badge -->
+            <!-- PWA Offline Badges (Commented out as requested) -->
+            <!--
             <span *ngIf="isOffline" class="text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
               <span>📡</span>
               <span>Off-Line</span>
@@ -29,6 +30,7 @@ import { LanguageSwitchComponent } from '../language-switch/language-switch.comp
               <span>⚡</span>
               <span>Offline Ready</span>
             </span>
+            -->
           </div>
           
           <div class="flex items-center gap-4">
