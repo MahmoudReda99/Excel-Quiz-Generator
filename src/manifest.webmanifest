@@ -1,6 +1,6 @@
 {
-  "name": "منصة الاختبارات التفاعلية (Interactive Quiz Platform)",
-  "short_name": "Interactive Quiz",
+  "name": "منصة الاختبارات التفاعلية",
+  "short_name": "منصة الاختبارات",
   "description": "منصة الاختبارات التفاعلية - تحويل ملفات إكسل إلى اختبارات تفاعلية بدون إنترنت",
   "start_url": "/",
   "scope": "/",
