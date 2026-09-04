@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { RouterOutlet, RouterLink } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { LayoutComponent } from './components/layout/layout.component';
 import { LanguageService } from './services/language.service';
@@ -15,7 +15,8 @@ export class AppComponent implements OnInit {
   constructor(private languageService: LanguageService) {}
 
   ngOnInit(): void {
-    // Initialize default language
-    this.languageService.setLanguage('en');
+    // Initialize language (defaults to Arabic 'ar' or user's saved preference)
+    const currentLang = this.languageService.getCurrentLang();
+    this.languageService.setLanguage(currentLang);
   }
 }
