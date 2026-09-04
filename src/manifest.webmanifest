@@ -1,7 +1,7 @@
 {
-  "name": "Excel Quiz Generator",
-  "short_name": "Quiz Generator",
-  "description": "Generate interactive quizzes from Excel files offline on any device",
+  "name": "منصة الاختبارات التفاعلية (Interactive Quiz Platform)",
+  "short_name": "Interactive Quiz",
+  "description": "منصة الاختبارات التفاعلية - تحويل ملفات إكسل إلى اختبارات تفاعلية بدون إنترنت",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

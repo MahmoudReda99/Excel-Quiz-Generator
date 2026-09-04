@@ -1,6 +1,6 @@
 export const en = {
   app: {
-    title: 'Excel Quiz Generator',
+    title: 'منصة الاختبارات التفاعلية (Interactive Quiz Platform)',
     subtitle: 'Generate interactive quizzes from Excel files easily',
     clearData: 'Clear Data'
   },

@@ -1,6 +1,6 @@
 export const ar = {
   app: {
-    title: 'منشئ اختبارات إكسل',
+    title: 'منصة الاختبارات التفاعلية (Interactive Quiz Platform)',
     subtitle: 'قم بإنشاء اختبارات تفاعلية من ملفات إكسل بسهولة',
     clearData: 'مسح البيانات'
   },
