@@ -49,15 +49,15 @@ export class QuestionBuilderService {
 
       const normalizedAnswer = this.normalizer.normalizeAnswer(rawAnswer, choices);
 
-      // Determine type: 'multiple' only if answer contains multiple selections (e.g. A,C)
+      // Determine type: 'multiple' if answer contains multiple selections (e.g. A;C, A,B) or type column indicates multiple
       let type: 'single' | 'multiple' = 'single';
       if (Array.isArray(normalizedAnswer) && normalizedAnswer.length > 1) {
         type = 'multiple';
-      } else if (String(rawAnswer || '').includes(',') || String(rawAnswer || '').includes(';')) {
+      } else if (String(rawAnswer || '').includes(',') || String(rawAnswer || '').includes(';') || String(rawAnswer || '').includes('و')) {
         type = 'multiple';
       } else if (mapping.typeCol !== null) {
         const typeStr = String(row[mapping.typeCol] || '').toLowerCase();
-        if (typeStr.includes('checkbox') || typeStr.includes('multiple select') || typeStr.includes('اختيار متعدد')) {
+        if (typeStr.includes('checkbox') || typeStr.includes('multiple') || typeStr.includes('متعدد') || typeStr.includes('إجابات') || typeStr.includes('خيارات')) {
           type = 'multiple';
         }
       }

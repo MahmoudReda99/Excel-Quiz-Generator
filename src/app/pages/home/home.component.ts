@@ -3,14 +3,17 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { ExcelParserService } from '../../services/excel-parser.service';
+import { MarkdownParserService } from '../../services/markdown-parser.service';
 import { QuizStateService } from '../../services/quiz-state.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { ExcelData } from '../../models/excel.model';
 
-interface SelectedExcelFile {
+interface SelectedFileItem {
   file: File;
   buffer: ArrayBuffer | null;
-  readPromise: Promise<ArrayBuffer>;
+  text: string | null;
+  isMd: boolean;
+  readPromise: Promise<ArrayBuffer | string>;
 }
 
 @Component({
@@ -49,10 +52,13 @@ interface SelectedExcelFile {
               *ngFor="let selected of selectedFiles; let i = index" 
               class="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-800">
               <div class="flex items-center gap-2.5 truncate me-2">
-                <span class="text-lg">📊</span>
+                <span class="text-lg">{{ selected.isMd ? '📝' : '📊' }}</span>
                 <span class="truncate">{{ selected.file.name }}</span>
                 <span class="text-xs text-gray-400 font-normal">({{ formatSize(selected.file.size) }})</span>
-                <span *ngIf="!selected.buffer" class="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                <span *ngIf="selected.isMd" class="text-[10px] text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full font-bold">
+                  Markdown
+                </span>
+                <span *ngIf="!selected.buffer && !selected.text" class="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
                   تجهيز
                 </span>
               </div>
@@ -83,7 +89,7 @@ interface SelectedExcelFile {
 
         <div *ngIf="isLoading" class="text-center py-6">
           <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-primary-200 border-t-primary-600"></div>
-          <p class="mt-2 text-sm font-bold text-gray-600">جاري قراءة ودمج ملفات الإكسل...</p>
+          <p class="mt-2 text-sm font-bold text-gray-600">جاري قراءة ودمج الأسئلة...</p>
         </div>
 
         <div *ngIf="errorMessage" class="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-xl font-semibold text-sm">
@@ -95,29 +101,37 @@ interface SelectedExcelFile {
 })
 export class HomeComponent {
   private excelParser = inject(ExcelParserService);
+  private mdParser = inject(MarkdownParserService);
   private quizState = inject(QuizStateService);
   private router = inject(Router);
 
-  selectedFiles: SelectedExcelFile[] = [];
+  selectedFiles: SelectedFileItem[] = [];
   isLoading = false;
   errorMessage = '';
   progressMessage = '';
 
   onFilesSelected(files: File[]) {
-    // Append new files avoiding duplicates by name
     const existingNames = new Set(this.selectedFiles.map(selected => selected.file.name));
     files.forEach(f => {
       if (!existingNames.has(f.name)) {
+        const isMd = f.name.toLowerCase().endsWith('.md') || f.name.toLowerCase().endsWith('.markdown');
         this.progressMessage = `جاري تجهيز ${f.name}...`;
-        const selected: SelectedExcelFile = {
+
+        const selected: SelectedFileItem = {
           file: f,
           buffer: null,
-          readPromise: this.excelParser.readFileBuffer(f)
+          text: null,
+          isMd,
+          readPromise: isMd ? this.mdParser.readMarkdownFile(f) : this.excelParser.readFileBuffer(f)
         };
 
         selected.readPromise
-          .then(buffer => {
-            selected.buffer = buffer;
+          .then(res => {
+            if (isMd) {
+              selected.text = res as string;
+            } else {
+              selected.buffer = res as ArrayBuffer;
+            }
             this.progressMessage = `تم تجهيز ${f.name}. اضغط تحليل الملف.`;
           })
           .catch(error => {
@@ -125,7 +139,7 @@ export class HomeComponent {
             this.progressMessage = '';
             this.errorMessage = error instanceof Error && error.message
               ? error.message
-              : 'تعذر تجهيز ملف الإكسل على هذا الجهاز. حاول اختيار الملف من On My iPhone بعد تنزيله.';
+              : 'تعذر تجهيز الملف على هذا الجهاز.';
           });
 
         this.selectedFiles.push(selected);
@@ -159,41 +173,50 @@ export class HomeComponent {
     this.progressMessage = 'تم الضغط على زر التحليل...';
 
     try {
-      this.progressMessage = 'جاري التأكد من جاهزية الملف...';
+      this.progressMessage = 'جاري التأكد من جاهزية الملفات...';
       const preparedFiles = await Promise.all(
-        this.selectedFiles.map(async selected => ({
-          file: selected.file,
-          buffer: selected.buffer || await selected.readPromise
-        }))
+        this.selectedFiles.map(async selected => {
+          if (selected.isMd) {
+            const text = selected.text || await (selected.readPromise as Promise<string>);
+            return { file: selected.file, isMd: true, text, buffer: null };
+          } else {
+            const buffer = selected.buffer || await (selected.readPromise as Promise<ArrayBuffer>);
+            return { file: selected.file, isMd: false, buffer, text: null };
+          }
+        })
       );
-      this.progressMessage = 'جاري قراءة أسئلة ملف الإكسل...';
+      this.progressMessage = 'جاري استخراج الأسئلة والإجابات...';
       const mergedData = this.buildExcelData(preparedFiles);
       this.progressMessage = `تم استخراج ${mergedData.sheets.length} ورقة. جاري فتح صفحة التحليل...`;
       this.quizState.setExcelData(mergedData);
       const navigated = await this.router.navigate(['/analysis']);
       if (!navigated) {
-        throw new Error('تم تحليل الملف، لكن لم يتم فتح صفحة التحليل. أغلق التطبيق وافتحه مرة واحدة أثناء الاتصال بالإنترنت ثم جرب مرة أخرى.');
+        throw new Error('تم تحليل الملف، لكن لم يتم فتح صفحة التحليل.');
       }
     } catch (error) {
       console.error('Error parsing files:', error);
       this.progressMessage = '';
       this.errorMessage = error instanceof Error && error.message
         ? error.message
-        : 'فشل في تحليل بعض ملفات الإكسل. يرجى التأكد من أن الملفات بصيغة .xlsx أو .xls جديدة.';
+        : 'فشل في تحليل بعض الملفات. يرجى التأكد من أن الملفات بصيغة .xlsx أو .xls أو .md جديدة.';
     } finally {
       this.isLoading = false;
     }
   }
 
-  private buildExcelData(preparedFiles: Array<{ file: File; buffer: ArrayBuffer }>): ExcelData {
-    if (preparedFiles.length === 1) {
-      const prepared = preparedFiles[0];
-      return this.excelParser.readWorkbookBuffer(prepared.file.name, prepared.file.size, prepared.buffer);
-    }
+  private buildExcelData(preparedFiles: Array<{ file: File; isMd: boolean; buffer: ArrayBuffer | null; text: string | null }>): ExcelData {
+    const parsedList: ExcelData[] = preparedFiles.map(p => {
+      if (p.isMd && p.text !== null) {
+        return this.mdParser.convertMarkdownToExcelData(p.file.name, p.file.size, p.text);
+      } else if (p.buffer) {
+        return this.excelParser.readWorkbookBuffer(p.file.name, p.file.size, p.buffer);
+      }
+      throw new Error(`تعذر قراءة محتوى الملف ${p.file.name}`);
+    });
 
-    const parsedList = preparedFiles.map(prepared =>
-      this.excelParser.readWorkbookBuffer(prepared.file.name, prepared.file.size, prepared.buffer)
-    );
+    if (parsedList.length === 1) {
+      return parsedList[0];
+    }
 
     let allSheets: ExcelData['sheets'] = [];
     const filesInfo: NonNullable<ExcelData['files']> = [];
@@ -219,7 +242,7 @@ export class HomeComponent {
     });
 
     return {
-      fileName: `دمج ${preparedFiles.length} ملفات إكسل مخصصة`,
+      fileName: `دمج ${preparedFiles.length} ملفات أسئلة مخصصة`,
       fileSize: totalSize,
       sheets: allSheets,
       selectedSheet: -1,

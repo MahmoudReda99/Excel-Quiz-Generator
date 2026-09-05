@@ -25,7 +25,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         {{ 'upload.dragDrop' | translate }}
       </h3>
       <p class="text-xs font-semibold text-gray-500 mb-4">
-        (يمكنك إختيار أو سحب أكثر من ملف إكسل في نفس الوقت للدمج)
+        (يدعم ملفات إكسل .xlsx / .xls وملفات ماركداون .md للدمج المباشر)
       </p>
 
       <div class="mt-4 inline-flex items-center gap-2">
@@ -34,7 +34,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           #fileInput
           class="hidden"
           multiple
-          accept=".xlsx,.xls,.XLSX,.XLS,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/octet-stream"
+          accept=".xlsx,.xls,.md,.markdown,.XLSX,.XLS,.MD,.MARKDOWN,text/markdown,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/octet-stream"
           (change)="onFileSelected($event)"
         />
         <button
@@ -52,15 +52,19 @@ export class FileUploadComponent {
   @Output() fileSelected = new EventEmitter<File>();
   isDragging = false;
 
-  private isExcelFile(file: File): boolean {
+  private isValidQuizFile(file: File): boolean {
     if (!file) return false;
     const name = (file.name || '').toLowerCase();
     const type = (file.type || '').toLowerCase();
     return (
       name.endsWith('.xlsx') || 
       name.endsWith('.xls') || 
+      name.endsWith('.md') || 
+      name.endsWith('.markdown') || 
       type.includes('sheet') || 
       type.includes('excel') || 
+      type.includes('markdown') || 
+      type.includes('text') || 
       type === 'application/octet-stream' ||
       type === ''
     );
@@ -88,7 +92,7 @@ export class FileUploadComponent {
       const validFiles: File[] = [];
       for (let i = 0; i < filesList.length; i++) {
         const file = filesList[i];
-        if (this.isExcelFile(file)) {
+        if (this.isValidQuizFile(file)) {
           validFiles.push(file);
         }
       }
@@ -105,7 +109,7 @@ export class FileUploadComponent {
       const validFiles: File[] = [];
       for (let i = 0; i < input.files.length; i++) {
         const file = input.files[i];
-        if (this.isExcelFile(file)) {
+        if (this.isValidQuizFile(file)) {
           validFiles.push(file);
         }
       }
