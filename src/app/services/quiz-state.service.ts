@@ -18,8 +18,8 @@ export class QuizStateService {
   
   private defaultConfig: QuizConfig = {
     mode: 'exam',
-    randomizeQuestions: true, // Enabled default question order randomization
-    randomizeAnswers: true,   // Enabled default choice order randomization
+    randomizeQuestions: true,
+    randomizeAnswers: true,
     questionCount: 'all',
     timerMinutes: null
   };
@@ -113,6 +113,25 @@ export class QuizStateService {
     this.quizState$.next(newState);
   }
 
+  startStudyMode(): void {
+    const pool = [...this.validatedQuestions$.value];
+    const studyQuestions = pool.map(q => ({
+      ...q,
+      userAnswer: null
+    }));
+
+    const newState: QuizState = {
+      ...this.quizState$.value,
+      status: 'study',
+      currentIndex: 0,
+      questions: studyQuestions,
+      startTime: null,
+      result: null
+    };
+
+    this.quizState$.next(newState);
+  }
+
   answerQuestion(questionIndex: number, answer: string | string[]): void {
     const state = this.quizState$.value;
     const questions = [...state.questions];
@@ -178,7 +197,6 @@ export class QuizStateService {
     const state = this.quizState$.value;
     if (!state.result) return false;
 
-    // Filter to questions that were incorrect or unanswered
     let wrongQuestions = state.questions.filter(q => {
       if (q.userAnswer === null || q.userAnswer === undefined) return true;
       if (Array.isArray(q.userAnswer) && q.userAnswer.length === 0) return true;

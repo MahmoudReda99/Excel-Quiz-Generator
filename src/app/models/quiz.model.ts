@@ -34,7 +34,7 @@ export interface QuizResult {
 }
 
 export interface QuizState {
-  status: 'idle' | 'ready' | 'active' | 'submitted';
+  status: 'idle' | 'ready' | 'active' | 'submitted' | 'study';
   currentIndex: number;
   questions: QuizQuestion[];
   config: QuizConfig;

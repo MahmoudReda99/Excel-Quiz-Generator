@@ -101,15 +101,13 @@ import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
         </app-column-mapper>
       </div>
 
-      <!-- Validation Report Section (Question Preview commented out) -->
+      <!-- Validation Report Section -->
       <div class="max-w-2xl mx-auto w-full" *ngIf="allQuestions.length > 0">
-        <!-- Question preview commented out as requested -->
-        <!-- <app-question-preview [questions]="previewQuestions"></app-question-preview> -->
-
         <app-validation-report 
           [validationResult]="validationResult"
           (fixMapping)="showManualMapping = true"
           (skipInvalid)="onSkipInvalid()"
+          (studyMode)="onStudyMode()"
           (generateQuiz)="onGenerateQuiz()">
         </app-validation-report>
       </div>
@@ -239,12 +237,19 @@ export class AnalysisComponent implements OnInit {
     this.validationResult = this.validator.validate(this.allQuestions);
   }
 
+  onStudyMode() {
+    this.quizState.setQuestions(this.allQuestions);
+    this.quizState.setValidatedQuestions(this.allQuestions);
+    this.quizState.setValidationResult(this.validationResult);
+    this.quizState.startStudyMode();
+    this.router.navigate(['/review']);
+  }
+
   onGenerateQuiz() {
     this.quizState.setQuestions(this.allQuestions);
     this.quizState.setValidatedQuestions(this.allQuestions);
     this.quizState.setValidationResult(this.validationResult);
 
-    // Apply default quiz config: Exam mode, randomize questions = true, randomize choices = true, no timer, all questions
     const defaultConfig: QuizConfig = {
       mode: 'exam',
       randomizeQuestions: true,

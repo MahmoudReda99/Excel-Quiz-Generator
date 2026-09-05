@@ -54,8 +54,9 @@ export const ar = {
     validQuestions: 'أسئلة صالحة وجاهزة',
     fixMapping: 'إصلاح التعيين',
     skipInvalid: 'تخطي الأسئلة غير الصالحة',
+    studyMode: 'مذاكرة (عرض الإجابات)',
     cancel: 'إلغاء',
-    generateQuiz: 'إنشاء الاختبار',
+    generateQuiz: 'بدء الاختبار',
     noQuestions: 'لم يتم العثور على أسئلة صالحة. يرجى التحقق من تعيين الأعمدة.'
   },
   settings: {
@@ -107,6 +108,10 @@ export const ar = {
   },
   review: {
     title: 'مراجعة الإجابات',
+    studyTitle: 'وضع المذاكرة — نموذج الإجابات',
+    studySubtitle: 'تصفح جميع الأسئلة مع الإجابات الصحيحة والتفسير الشامل للمذاكرة والمراجعة',
+    startQuizNow: 'بدء الاختبار الآن',
+    backToAnalysis: 'العودة للتحليل',
     yourAnswer: 'إجابتك',
     correctAnswer: 'الإجابة الصحيحة',
     status: 'الحالة',

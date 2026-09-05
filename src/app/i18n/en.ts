@@ -54,8 +54,9 @@ export const en = {
     validQuestions: 'valid questions ready',
     fixMapping: 'Fix Mapping',
     skipInvalid: 'Skip Invalid Questions',
+    studyMode: 'Study Mode (Show Answers)',
     cancel: 'Cancel',
-    generateQuiz: 'Generate Quiz',
+    generateQuiz: 'Start Quiz',
     noQuestions: 'No valid questions found. Please check column mapping.'
   },
   settings: {
@@ -107,6 +108,10 @@ export const en = {
   },
   review: {
     title: 'Answer Review',
+    studyTitle: 'Study Mode — Answer Key',
+    studySubtitle: 'Browse all questions with correct answers and explanations',
+    startQuizNow: 'Start Quiz Now',
+    backToAnalysis: 'Back to Analysis',
     yourAnswer: 'Your Answer',
     correctAnswer: 'Correct Answer',
     status: 'Status',
