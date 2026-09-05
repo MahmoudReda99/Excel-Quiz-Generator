@@ -124,15 +124,15 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         </div>
       </div>
 
-      <!-- Confirm Submit Button for Single & Multiple Choice -->
-      <div *ngIf="!shouldShowAnswerDetails" class="mt-6 flex justify-end">
+      <!-- Confirm Multi-Answer Submit Button -->
+      <div *ngIf="question.type === 'multiple' && !shouldShowAnswerDetails" class="mt-6 flex justify-end">
         <button 
           type="button"
-          (click)="confirmAnswer()"
-          [disabled]="hasNoSelection"
+          (click)="confirmMultiAnswer()"
+          [disabled]="selectedChoiceIds.length === 0"
           class="btn-primary py-3.5 px-8 text-base font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2"
-          [class.opacity-50]="hasNoSelection"
-          [class.cursor-not-allowed]="hasNoSelection">
+          [class.opacity-50]="selectedChoiceIds.length === 0"
+          [class.cursor-not-allowed]="selectedChoiceIds.length === 0">
           <span>✓</span>
           <span>{{ 'quiz.confirmAnswer' | translate }}</span>
         </button>
@@ -156,17 +156,18 @@ export class QuizQuestionComponent implements OnChanges {
 
   selectedChoiceId: string | null = null;
   selectedChoiceIds: string[] = [];
-  isSubmittedLocally: boolean = false;
+  isMultiSubmitted: boolean = false;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['question'] && this.question) {
-      this.isSubmittedLocally = !!this.question.isSubmitted;
       if (this.question.type === 'multiple') {
         this.selectedChoiceIds = Array.isArray(this.question.userAnswer) ? [...this.question.userAnswer] : [];
         this.selectedChoiceId = null;
+        this.isMultiSubmitted = !!this.question.isSubmitted;
       } else {
         this.selectedChoiceId = typeof this.question.userAnswer === 'string' ? this.question.userAnswer : null;
         this.selectedChoiceIds = [];
+        this.isMultiSubmitted = false;
       }
     }
   }
@@ -192,7 +193,10 @@ export class QuizQuestionComponent implements OnChanges {
 
   get shouldShowAnswerDetails(): boolean {
     if (this.showResult) return true;
-    return this.isSubmittedLocally || !!this.question?.isSubmitted;
+    if (this.question.type === 'single') {
+      return !!this.question.userAnswer;
+    }
+    return this.isMultiSubmitted || !!this.question.isSubmitted;
   }
 
   get isAnswerLocked(): boolean {
@@ -200,23 +204,15 @@ export class QuizQuestionComponent implements OnChanges {
   }
 
   get isUserAnswerCorrect(): boolean {
-    if (!this.question) return false;
+    if (!this.question.userAnswer) return false;
     if (this.question.type === 'single') {
-      return !!this.selectedChoiceId && this.isChoiceCorrect(this.selectedChoiceId);
+      return this.isChoiceCorrect(this.selectedChoiceId || '');
     }
     if (Array.isArray(this.question.correctAnswer)) {
       if (this.selectedChoiceIds.length !== this.question.correctAnswer.length) return false;
       return this.selectedChoiceIds.every(id => this.isChoiceCorrect(id));
     }
     return this.selectedChoiceIds.length === 1 && this.isChoiceCorrect(this.selectedChoiceIds[0]);
-  }
-
-  get hasNoSelection(): boolean {
-    if (!this.question) return true;
-    if (this.question.type === 'single') {
-      return !this.selectedChoiceId;
-    }
-    return !this.selectedChoiceIds || this.selectedChoiceIds.length === 0;
   }
 
   onChoiceClick(id: string) {
@@ -238,14 +234,10 @@ export class QuizQuestionComponent implements OnChanges {
     }
   }
 
-  confirmAnswer() {
-    if (this.hasNoSelection || this.isAnswerLocked) return;
-    this.isSubmittedLocally = true;
+  confirmMultiAnswer() {
+    if (this.selectedChoiceIds.length === 0 || this.isAnswerLocked) return;
+    this.isMultiSubmitted = true;
     this.question.isSubmitted = true;
-    if (this.question.type === 'single') {
-      this.answerChanged.emit(this.selectedChoiceId!);
-    } else {
-      this.answerChanged.emit([...this.selectedChoiceIds]);
-    }
+    this.answerChanged.emit([...this.selectedChoiceIds]);
   }
 }
