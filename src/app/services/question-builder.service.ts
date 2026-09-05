@@ -27,22 +27,25 @@ export class QuestionBuilderService {
 
       let explicitChoicesCount = 0;
       let choices: QuizChoice[] = [];
+      const choicesText: string[] = [];
       if (mapping.choiceCols.length > 0) {
         mapping.choiceCols.forEach((colIdx, i) => {
           const cText = row[colIdx];
           if (cText !== null && cText !== undefined && String(cText).trim() !== '') {
+            const trimmedChoice = String(cText).trim();
             explicitChoicesCount++;
+            choicesText.push(trimmedChoice);
             choices.push({
               id: labels[i] || `O${i}`,
               label: labels[i] || `O${i}`,
-              text: String(cText).trim()
+              text: trimmedChoice
             });
           }
         });
       }
 
       // Check if this row is a footer, examiner signature, committee note, or non-question row
-      if (this.isFooterOrExaminerRow(String(qText), rawAnswer, mapping.choiceCols.length > 0, explicitChoicesCount)) {
+      if (this.isFooterOrExaminerRow(String(qText), rawAnswer, mapping.choiceCols.length > 0, explicitChoicesCount, choicesText)) {
         return; // Ignore and skip footer / signature rows
       }
 
@@ -84,8 +87,14 @@ export class QuestionBuilderService {
     return questions;
   }
 
-  private isFooterOrExaminerRow(qText: string, rawAnswer: any, hasChoiceCols: boolean, explicitChoicesCount: number): boolean {
-    const text = String(qText || '').toLowerCase().trim();
+  private isFooterOrExaminerRow(
+    qText: string,
+    rawAnswer: any,
+    hasChoiceCols: boolean,
+    explicitChoicesCount: number,
+    choicesText: string[] = []
+  ): boolean {
+    const text = String(qText || '').trim();
     if (!text) return true;
 
     // Signature, Examiner, Committee, and Footer keywords
@@ -93,12 +102,25 @@ export class QuestionBuilderService {
       'إعداد', 'اعداد', 'إشراف', 'اشراف', 'رئيس اللجنة', 'اعضاء اللجنة', 'أعضاء اللجنة',
       'توقيع', 'عضو اللجنة', 'الممتحن', 'المراجع', 'اللجنة الامتحانية', 'لجنة الاختبار',
       'مع تمنياتنا', 'انتهت الأسئلة', 'انتهت الاسئلة', 'تم بحمد الله', 'النتيجة النهائية',
-      'ملاحظات', 'اسم المراجع', 'رقم البند', 'رقم الصفحة', 'اسم المرجع',
+      'ملاحظات', 'اسم المراجع', 'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'رئيس قاطع', 'مشرف الدور', 'قائد المركز',
       'examiner', 'signature', 'prepared by', 'approved by', 'committee', 'page '
     ];
 
-    const isKeywordMatch = footerKeywords.some(kw => text.startsWith(kw) || (text.length < 60 && text.includes(kw)));
+    const lowerText = text.toLowerCase();
+    const isKeywordMatch = footerKeywords.some(kw => lowerText.startsWith(kw) || (lowerText.length < 80 && lowerText.includes(kw)));
     if (isKeywordMatch) {
+      return true;
+    }
+
+    // Military Ranks signature pattern check (e.g. عميد أ ح /, مقدم /, رائد /, عقيد /, نقيب /, ملازم /, لواء /, فريق /)
+    const militaryRankRegex = /(?:^|\s)(?:عميد|عقيد|مقدم|رائد|نقيب|ملازم|لواء|فريق|مشير)(?:\s+أ\s*\.?\s*ح)?\s*[\/\s]/i;
+    if (militaryRankRegex.test(text)) {
+      return true;
+    }
+
+    // Check if choices text contains military rank signatures
+    const choicesCombined = choicesText.join(' ');
+    if (choicesCombined && militaryRankRegex.test(choicesCombined) && (!rawAnswer || String(rawAnswer).trim() === '')) {
       return true;
     }
 
