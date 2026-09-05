@@ -59,16 +59,35 @@ export class QuestionBuilderService {
 
       const normalizedAnswer = this.normalizer.normalizeAnswer(rawAnswer, choices);
 
-      // Determine type: 'multiple' if answer contains multiple selections (e.g. A;C, A,B) or type column indicates multiple
+      // Determine type: 'multiple' if answer contains multiple selections (e.g. A;C, A,B) or type column indicates multi-answers
       let type: 'single' | 'multiple' = 'single';
       if (Array.isArray(normalizedAnswer) && normalizedAnswer.length > 1) {
         type = 'multiple';
-      } else if (String(rawAnswer || '').includes(',') || String(rawAnswer || '').includes(';') || String(rawAnswer || '').includes('و')) {
-        type = 'multiple';
-      } else if (mapping.typeCol !== null) {
-        const typeStr = String(row[mapping.typeCol] || '').toLowerCase();
-        if (typeStr.includes('checkbox') || typeStr.includes('multiple') || typeStr.includes('متعدد') || typeStr.includes('إجابات') || typeStr.includes('خيارات')) {
+      } else if (rawAnswer !== null && rawAnswer !== undefined) {
+        const rawStr = String(rawAnswer).trim();
+        const parts = rawStr.split(/[,;\s\u060C]+/).filter(p => p.trim().length > 0);
+        if (parts.length > 1) {
           type = 'multiple';
+        }
+      }
+
+      if (mapping.typeCol !== null && row[mapping.typeCol] !== undefined && row[mapping.typeCol] !== null) {
+        const typeStr = String(row[mapping.typeCol] || '').toLowerCase().trim();
+        
+        const multiAnswerKeywords = [
+          'multiple answer', 'multiple answers', 'multi answer', 'multi select', 'checkbox',
+          'متعدد الإجابات', 'متعدد الاجابات', 'إجابات متعددة', 'اجابات متعددة', 'أكثر من إجابة', 'خيارات متعددة'
+        ];
+        
+        const singleChoiceKeywords = [
+          'multiple choice', 'single choice', 'single', 'mcq',
+          'اختيار من متعدد', 'الاختيار من متعدد', 'متعدد الاختيارات', 'اختيار واحد', 'إجابة واحدة', 'اجابة واحدة'
+        ];
+
+        if (multiAnswerKeywords.some(kw => typeStr.includes(kw))) {
+          type = 'multiple';
+        } else if (singleChoiceKeywords.some(kw => typeStr.includes(kw))) {
+          type = 'single';
         }
       }
 

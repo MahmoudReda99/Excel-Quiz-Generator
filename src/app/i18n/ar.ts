@@ -40,8 +40,8 @@ export const ar = {
     explanation: 'عمود الشرح (اختياري)',
     questionType: 'نوع السؤال',
     autoDetect: 'اكتشاف تلقائي',
-    single: 'اختيار واحد',
-    multiple: 'متعدد الاختيارات'
+    single: 'اختيار من متعدد',
+    multiple: 'متعدد الإجابات'
   },
   preview: {
     title: 'معاينة الأسئلة',

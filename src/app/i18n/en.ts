@@ -40,8 +40,8 @@ export const en = {
     explanation: 'Explanation Column (Optional)',
     questionType: 'Question Type',
     autoDetect: 'Auto Detect',
-    single: 'Single Choice',
-    multiple: 'Multiple Choice'
+    single: 'Multiple Choice',
+    multiple: 'Multiple Answers'
   },
   preview: {
     title: 'Question Preview',
