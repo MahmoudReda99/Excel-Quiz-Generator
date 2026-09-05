@@ -86,6 +86,7 @@ export const ar = {
     submitConfirm: 'هل أنت متأكد من تسليم الاختبار الآن؟',
     timeUp: 'انتهى الوقت! سيتم تسليم اختبارك تلقائياً.',
     practiceCheck: 'تحقق من الإجابة',
+    confirmAnswer: 'تأكيد وإظهار الإجابة',
     navigatorTitle: 'مستعرض وتنقل الأسئلة',
     allQuestions: 'الكل',
     answered: 'تمت الإجابة',

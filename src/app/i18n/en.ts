@@ -86,6 +86,7 @@ export const en = {
     submitConfirm: 'Are you sure you want to submit the quiz now?',
     timeUp: 'Time is up! Your quiz will be automatically submitted.',
     practiceCheck: 'Check Answer',
+    confirmAnswer: 'Confirm & Show Answer',
     navigatorTitle: 'Question Navigator',
     allQuestions: 'All',
     answered: 'Answered',

@@ -7,6 +7,7 @@ export interface QuizQuestion {
   explanation: string | null;
   difficulty: number | null;
   userAnswer: string | string[] | null;
+  isSubmitted?: boolean;
 }
 
 export interface QuizChoice {

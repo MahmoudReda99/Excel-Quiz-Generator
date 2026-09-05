@@ -94,7 +94,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             </div>
           </div>
 
-          <!-- Row 2: Status Sub-Banner (Only shown when shouldShowAnswerDetails = true in Review mode) -->
+          <!-- Row 2: Status Sub-Banner (Only shown when shouldShowAnswerDetails = true) -->
           <div *ngIf="shouldShowAnswerDetails && (isChoiceCorrect(choice.id) || isChoiceSelected(choice.id))" 
                class="w-full pt-2 border-t border-gray-200/80 mt-1 flex flex-col gap-1">
             
@@ -124,7 +124,21 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         </div>
       </div>
 
-      <!-- Explanation Text (Only shown when shouldShowAnswerDetails = true in Review mode) -->
+      <!-- Confirm Multi-Answer Submit Button -->
+      <div *ngIf="question.type === 'multiple' && !shouldShowAnswerDetails" class="mt-6 flex justify-end">
+        <button 
+          type="button"
+          (click)="confirmMultiAnswer()"
+          [disabled]="selectedChoiceIds.length === 0"
+          class="btn-primary py-3.5 px-8 text-base font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2"
+          [class.opacity-50]="selectedChoiceIds.length === 0"
+          [class.cursor-not-allowed]="selectedChoiceIds.length === 0">
+          <span>✓</span>
+          <span>{{ 'quiz.confirmAnswer' | translate }}</span>
+        </button>
+      </div>
+
+      <!-- Explanation Text (Only shown when shouldShowAnswerDetails = true) -->
       <div *ngIf="shouldShowAnswerDetails && question.explanation" class="mt-4 p-4 bg-blue-50 text-blue-900 rounded-xl border border-blue-200">
         <h4 class="font-bold mb-1 text-sm flex items-center gap-2">
           <span>💡</span> {{ 'review.explanation' | translate }}:
@@ -142,15 +156,18 @@ export class QuizQuestionComponent implements OnChanges {
 
   selectedChoiceId: string | null = null;
   selectedChoiceIds: string[] = [];
+  isMultiSubmitted: boolean = false;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['question'] && this.question) {
       if (this.question.type === 'multiple') {
         this.selectedChoiceIds = Array.isArray(this.question.userAnswer) ? [...this.question.userAnswer] : [];
         this.selectedChoiceId = null;
+        this.isMultiSubmitted = !!this.question.isSubmitted;
       } else {
         this.selectedChoiceId = typeof this.question.userAnswer === 'string' ? this.question.userAnswer : null;
         this.selectedChoiceIds = [];
+        this.isMultiSubmitted = false;
       }
     }
   }
@@ -175,11 +192,15 @@ export class QuizQuestionComponent implements OnChanges {
   }
 
   get shouldShowAnswerDetails(): boolean {
-    return this.showResult;
+    if (this.showResult) return true;
+    if (this.question.type === 'single') {
+      return !!this.question.userAnswer;
+    }
+    return this.isMultiSubmitted || !!this.question.isSubmitted;
   }
 
   get isAnswerLocked(): boolean {
-    return this.showResult;
+    return this.shouldShowAnswerDetails;
   }
 
   get isUserAnswerCorrect(): boolean {
@@ -192,12 +213,6 @@ export class QuizQuestionComponent implements OnChanges {
       return this.selectedChoiceIds.every(id => this.isChoiceCorrect(id));
     }
     return this.selectedChoiceIds.length === 1 && this.isChoiceCorrect(this.selectedChoiceIds[0]);
-  }
-
-  getCorrectChoiceTexts(): string {
-    if (!this.question || !this.question.choices) return '';
-    const correctChoices = this.question.choices.filter(c => this.isChoiceCorrect(c.id));
-    return correctChoices.map(c => `${c.label || c.id}. ${c.text}`).join(', ');
   }
 
   onChoiceClick(id: string) {
@@ -217,5 +232,12 @@ export class QuizQuestionComponent implements OnChanges {
       this.selectedChoiceId = id;
       this.answerChanged.emit(id);
     }
+  }
+
+  confirmMultiAnswer() {
+    if (this.selectedChoiceIds.length === 0 || this.isAnswerLocked) return;
+    this.isMultiSubmitted = true;
+    this.question.isSubmitted = true;
+    this.answerChanged.emit([...this.selectedChoiceIds]);
   }
 }
