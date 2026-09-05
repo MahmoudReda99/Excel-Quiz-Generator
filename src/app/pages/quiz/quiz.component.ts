@@ -148,13 +148,6 @@ export class QuizPageComponent implements OnInit, OnDestroy {
   }
 
   get showFeedback(): boolean {
-    if (!this.quizState || !this.quizState.config) return false;
-    if (this.quizState.config.mode === 'exam') {
-      return false; // In exam mode, never lock questions or reveal answers mid-quiz
-    }
-    if (this.currentQuestion?.type === 'single') {
-      return !!this.currentQuestion?.userAnswer;
-    }
     return false;
   }
 

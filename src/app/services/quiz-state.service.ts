@@ -94,7 +94,7 @@ export class QuizStateService {
     }
 
     const finalQuestions = pool.map(q => {
-      const newQ = { ...q, userAnswer: null };
+      const newQ = { ...q, userAnswer: null, isSubmitted: false };
       if (config.randomizeAnswers && newQ.choices && newQ.choices.length > 0) {
         newQ.choices = this.shuffleArray(newQ.choices);
       }
@@ -177,7 +177,7 @@ export class QuizStateService {
       pool = this.shuffleArray(pool);
     }
     const resetQuestions = pool.map(q => {
-      const newQ = { ...q, userAnswer: null };
+      const newQ = { ...q, userAnswer: null, isSubmitted: false };
       if (state.config.randomizeAnswers && newQ.choices && newQ.choices.length > 0) {
         newQ.choices = this.shuffleArray(newQ.choices);
       }
@@ -210,7 +210,7 @@ export class QuizStateService {
     }
 
     const resetQuestions = wrongQuestions.map(q => {
-      const newQ = { ...q, userAnswer: null };
+      const newQ = { ...q, userAnswer: null, isSubmitted: false };
       if (state.config.randomizeAnswers && newQ.choices && newQ.choices.length > 0) {
         newQ.choices = this.shuffleArray(newQ.choices);
       }
