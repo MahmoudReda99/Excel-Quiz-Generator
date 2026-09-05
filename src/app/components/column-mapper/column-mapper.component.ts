@@ -21,15 +21,45 @@ import { ColumnMapping } from '../../models/excel.model';
         </select>
       </div>
 
-      <!-- Choice Columns -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">{{ 'mapping.choiceCols' | translate }}</label>
-        <div class="space-y-2 border border-gray-200 rounded-md p-3 max-h-48 overflow-y-auto">
-          <div *ngFor="let header of headers; let i = index" class="flex items-center">
-            <input type="checkbox" [checked]="isChoiceSelected(i)" (change)="toggleChoice(i, $event)" [id]="'choice-'+i" class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
-            <label [for]="'choice-'+i" class="ms-2 block text-sm text-gray-900 cursor-pointer">
-              {{i}}: {{ header }}
-            </label>
+      <!-- Choice Columns (Option A, B, C, D) -->
+      <div class="space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50/50">
+        <label class="block text-sm font-bold text-gray-900">{{ 'mapping.choiceCols' | translate }}</label>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Option A -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">{{ 'mapping.optionA' | translate }}</label>
+            <select [ngModel]="optionACol" (ngModelChange)="updateOptionCol(0, $event)" class="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md border bg-white">
+              <option [ngValue]="null">-- {{ 'common.off' | translate }} / None --</option>
+              <option *ngFor="let header of headers; let i = index" [ngValue]="i">{{i}}: {{ header }}</option>
+            </select>
+          </div>
+
+          <!-- Option B -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">{{ 'mapping.optionB' | translate }}</label>
+            <select [ngModel]="optionBCol" (ngModelChange)="updateOptionCol(1, $event)" class="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md border bg-white">
+              <option [ngValue]="null">-- {{ 'common.off' | translate }} / None --</option>
+              <option *ngFor="let header of headers; let i = index" [ngValue]="i">{{i}}: {{ header }}</option>
+            </select>
+          </div>
+
+          <!-- Option C -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">{{ 'mapping.optionC' | translate }}</label>
+            <select [ngModel]="optionCCol" (ngModelChange)="updateOptionCol(2, $event)" class="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md border bg-white">
+              <option [ngValue]="null">-- {{ 'common.off' | translate }} / None --</option>
+              <option *ngFor="let header of headers; let i = index" [ngValue]="i">{{i}}: {{ header }}</option>
+            </select>
+          </div>
+
+          <!-- Option D -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">{{ 'mapping.optionD' | translate }}</label>
+            <select [ngModel]="optionDCol" (ngModelChange)="updateOptionCol(3, $event)" class="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md border bg-white">
+              <option [ngValue]="null">-- {{ 'common.off' | translate }} / None --</option>
+              <option *ngFor="let header of headers; let i = index" [ngValue]="i">{{i}}: {{ header }}</option>
+            </select>
           </div>
         </div>
       </div>
@@ -75,25 +105,36 @@ export class ColumnMapperComponent {
   };
   @Output() mappingChanged = new EventEmitter<ColumnMapping>();
 
-  isChoiceSelected(index: number): boolean {
-    return this.mapping.choiceCols ? this.mapping.choiceCols.includes(index) : false;
+  get optionACol(): number | null {
+    return this.mapping.choiceCols && this.mapping.choiceCols[0] !== undefined ? this.mapping.choiceCols[0] : null;
   }
 
-  toggleChoice(index: number, event: Event) {
-    const checked = (event.target as HTMLInputElement).checked;
-    const choiceCols = this.mapping.choiceCols ? [...this.mapping.choiceCols] : [];
-    
-    if (checked) {
-      if (!choiceCols.includes(index)) {
-        choiceCols.push(index);
-      }
-    } else {
-      const idx = choiceCols.indexOf(index);
-      if (idx > -1) {
-        choiceCols.splice(idx, 1);
-      }
-    }
-    
+  get optionBCol(): number | null {
+    return this.mapping.choiceCols && this.mapping.choiceCols[1] !== undefined ? this.mapping.choiceCols[1] : null;
+  }
+
+  get optionCCol(): number | null {
+    return this.mapping.choiceCols && this.mapping.choiceCols[2] !== undefined ? this.mapping.choiceCols[2] : null;
+  }
+
+  get optionDCol(): number | null {
+    return this.mapping.choiceCols && this.mapping.choiceCols[3] !== undefined ? this.mapping.choiceCols[3] : null;
+  }
+
+  updateOptionCol(slotIndex: number, colIndexVal: any) {
+    const colIndex = (colIndexVal === null || colIndexVal === 'null' || colIndexVal === undefined) ? null : Number(colIndexVal);
+
+    const slots: (number | null)[] = [
+      this.optionACol,
+      this.optionBCol,
+      this.optionCCol,
+      this.optionDCol
+    ];
+
+    slots[slotIndex] = (colIndex !== null && !isNaN(colIndex)) ? colIndex : null;
+
+    const choiceCols: number[] = slots.filter((val): val is number => val !== null && val !== undefined && val >= 0);
+
     this.mapping = {
       ...this.mapping,
       choiceCols
