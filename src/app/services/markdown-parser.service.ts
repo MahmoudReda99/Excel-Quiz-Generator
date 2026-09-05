@@ -30,6 +30,11 @@ export class MarkdownParserService {
 
     const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
+    const arabicChoiceMap: { [key: string]: string } = {
+      'أ': 'A', 'ا': 'A', 'ب': 'B', 'ج': 'C', 'د': 'D',
+      'هـ': 'E', 'ه': 'E', 'و': 'F', 'ز': 'G', 'ح': 'H'
+    };
+
     const isFooterOrExaminerText = (text: string): boolean => {
       const norm = text.toLowerCase().trim();
       const footerKeywords = [
@@ -47,16 +52,34 @@ export class MarkdownParserService {
     };
 
     const saveCurrentQuestion = () => {
-      if (currentQText.trim() && currentChoices.length > 0 && !isFooterOrExaminerText(currentQText)) {
+      let qTextClean = currentQText.trim();
+      if (!qTextClean) return;
+
+      // Clean HTML comment tags if present
+      qTextClean = qTextClean.replace(/<!--[\s\S]*?-->/g, '').trim();
+      // Remove leading # symbols or "#### السؤال 1" if qText starts with header
+      qTextClean = qTextClean.replace(/^(?:#+\s*)*(?:السؤال|سؤال|س|Q|Question)\s*\d+[:\.\-]?\s*/i, '').trim();
+
+      if (qTextClean && !isFooterOrExaminerText(qTextClean)) {
+        let choices = [...currentChoices];
+
+        // If no explicit choices found, check if it's a True/False question or fallback
+        if (choices.length === 0) {
+          choices = [
+            { id: 'A', label: 'A', text: 'صح / True' },
+            { id: 'B', label: 'B', text: 'خطأ / False' }
+          ];
+        }
+
         const type: 'single' | 'multiple' = currentCorrectAnswers.length > 1 ? 'multiple' : 'single';
         const finalCorrect = currentCorrectAnswers.length === 1 
           ? currentCorrectAnswers[0] 
-          : (currentCorrectAnswers.length > 1 ? currentCorrectAnswers : (currentChoices[0]?.id || 'A'));
+          : (currentCorrectAnswers.length > 1 ? currentCorrectAnswers : (choices[0]?.id || 'A'));
 
         questions.push({
           id: `md_q_${questions.length + 1}`,
-          text: currentQText.trim(),
-          choices: [...currentChoices],
+          text: qTextClean,
+          choices,
           correctAnswer: finalCorrect,
           type,
           explanation: currentExplanation ? currentExplanation.trim() : null,
@@ -64,6 +87,7 @@ export class MarkdownParserService {
           userAnswer: null
         });
       }
+
       currentQText = '';
       currentChoices = [];
       currentCorrectAnswers = [];
@@ -75,65 +99,85 @@ export class MarkdownParserService {
       const line = lines[i].trim();
       if (!line) continue;
 
-      // Check for Question Header: # 1. , ## Question 1: , 1. , س1: , Q1:
+      // Ignore HTML comments like <!-- converted from ... -->
+      if (line.startsWith('<!--') && line.endsWith('-->')) continue;
+
+      // Clean line without bold asterisks/underscores for pattern testing
+      const cleanLine = line.replace(/[*_]/g, ' ').replace(/\s+/g, ' ').trim();
+
+      // Check for Question Header: #### السؤال 1 , # 1. , ## Question 1: , 1. , س1: , Q1:
+      const isHeader = /^#+\s*/.test(line) || 
+                       /^(?:السؤال|سؤال|س|Q|Question)\s*\d+[:\.\-]?$/i.test(cleanLine) ||
+                       /^\d+[\.\-\)]\s*$/i.test(cleanLine);
+      
       const qHeaderMatch = line.match(/^(?:#+\s*|\d+[\.\-\)]\s*|س\s*\d+[:\.\-]\s*|Q\d+[:\.\-]\s*|Question\s*\d+[:\.\-]\s*)(.+)$/i);
       
-      // Check for Answer key line: Answer: A,C or الإجابة: أ،ج or Correct: B
-      const answerKeyMatch = line.match(/^(?:Answer|Correct Answer|Correct|الإجابة|الحل|الإجابة الصحيحة)[:\s]+(.+)$/i);
+      // Check for Answer key line: **الإجابة:** A or Answer: A,C or الإجابة: صح
+      const answerKeyMatch = cleanLine.match(/^(?:Answer|Correct Answer|Correct|الإجابة|إجابة|الحل|الإجابة الصحيحة)[:\s]+(.+)$/i);
 
       // Check for Explanation line: > Explanation text or Explanation: text or الشرح: text
-      const expMatch = line.match(/^(?:>\s*|(?:Explanation|الشرح|التفسير)[:\s]+)(.+)$/i);
+      const expMatch = cleanLine.match(/^(?:>\s*|(?:Explanation|الشرح|التفسير)[:\s]+)(.+)$/i);
 
-      if (qHeaderMatch && !line.startsWith('- [') && !line.match(/^[A-H][\.\)]/i)) {
+      // Check for Choice line: - **A)** text or - A. text or - [ ] A) text
+      const choiceMatch = line.match(/^(?:[\-\*\+]\s*)?(?:\[[ xX]\]\s*)?(?:\*\*|\b)?\(?([A-Ha-hأ-ي1-8])[\.\)\:]\)?(?:\*\*|\b)?\s*(.+)$/);
+
+      if (isHeader && !choiceMatch && !answerKeyMatch) {
         saveCurrentQuestion();
-        currentQText = qHeaderMatch[1].trim();
-      } else if (answerKeyMatch) {
-        const rawAns = answerKeyMatch[1].trim();
-        const parts = rawAns.split(/[,;\s\u060C]+/);
-        parts.forEach(p => {
-          const cleanP = p.trim().toUpperCase();
-          if (cleanP) {
-            currentCorrectAnswers.push(cleanP);
-          }
-        });
-      } else if (expMatch) {
-        currentExplanation = (currentExplanation ? currentExplanation + ' ' : '') + expMatch[1].trim();
-      } else if (line.startsWith('- [') || line.match(/^(?:[\-\*\+]\s*)?(?:[A-Ha-hأ-ي1-8][\.\)\:])\s+/)) {
-        let isChecked = false;
-        let isStarred = false;
-        let label = labels[optionIndex] || `O${optionIndex}`;
-        let choiceText = line;
-
-        // Checkbox [- [x] text]
-        const cbMatch = line.match(/^[\-\*\+]\s*\[([ xX])\]\s*(?:([A-Ha-hأ-ي1-8])[\.\)\:]\s*)?(.+)$/);
-        if (cbMatch) {
-          isChecked = cbMatch[1].toLowerCase() === 'x';
-          if (cbMatch[2]) label = cbMatch[2].toUpperCase();
-          choiceText = cbMatch[3].trim();
-        } else {
-          // Standard choice A) text or A. text *
-          const stdMatch = line.match(/^(?:[\-\*\+]\s*)?(?:([A-Ha-hأ-ي1-8])[\.\)\:]\s*)?(.+?)(\s*\*+)?$/);
-          if (stdMatch) {
-            if (stdMatch[1]) label = stdMatch[1].toUpperCase();
-            choiceText = stdMatch[2].trim();
-            if (stdMatch[3]) isStarred = true;
+        if (qHeaderMatch && qHeaderMatch[1]) {
+          const bodyPart = qHeaderMatch[1].trim();
+          if (!/^(?:السؤال|سؤال|س|Q|Question)?\s*\d+[:\.\-]?$/i.test(bodyPart)) {
+            currentQText = bodyPart;
           }
         }
+      } else if (answerKeyMatch) {
+        const rawAns = answerKeyMatch[1].trim();
+        if (rawAns === 'صح' || rawAns.toLowerCase() === 'true' || rawAns === 'نعم') {
+          currentCorrectAnswers.push('A');
+        } else if (rawAns === 'خطأ' || rawAns.toLowerCase() === 'false' || rawAns === 'لا') {
+          currentCorrectAnswers.push('B');
+        } else {
+          const parts = rawAns.split(/[,;\s\u060C]+/);
+          parts.forEach(p => {
+            let cleanP = p.trim().toUpperCase();
+            if (arabicChoiceMap[cleanP]) {
+              cleanP = arabicChoiceMap[cleanP];
+            }
+            if (cleanP) {
+              currentCorrectAnswers.push(cleanP);
+            }
+          });
+        }
+      } else if (expMatch) {
+        currentExplanation = (currentExplanation ? currentExplanation + ' ' : '') + expMatch[1].trim();
+      } else if (choiceMatch) {
+        let label = choiceMatch[1].toUpperCase();
+        if (arabicChoiceMap[label]) {
+          label = arabicChoiceMap[label];
+        }
+        let choiceText = choiceMatch[2].replace(/^\*\*\)?\s*/, '').replace(/\*\*$/, '').trim();
 
-        const choiceId = label.toUpperCase();
+        let isChecked = false;
+        if (line.includes('[x]') || line.includes('[X]')) {
+          isChecked = true;
+        }
+
+        const choiceId = label;
         currentChoices.push({
           id: choiceId,
           label: choiceId,
           text: choiceText
         });
 
-        if (isChecked || isStarred) {
+        if (isChecked) {
           currentCorrectAnswers.push(choiceId);
         }
 
         optionIndex++;
-      } else if (currentQText && currentChoices.length === 0) {
-        currentQText += ' ' + line;
+      } else if (!line.startsWith('#')) {
+        const cleanContent = line.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+        if (cleanContent) {
+          currentQText = (currentQText ? currentQText + ' ' : '') + cleanContent;
+        }
       }
     }
 
