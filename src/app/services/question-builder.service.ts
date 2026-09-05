@@ -25,11 +25,13 @@ export class QuestionBuilderService {
       const explanation = mapping.explanationCol !== null ? row[mapping.explanationCol] : null;
       const difficulty = mapping.difficultyCol !== null ? Number(row[mapping.difficultyCol]) : null;
 
+      let explicitChoicesCount = 0;
       let choices: QuizChoice[] = [];
       if (mapping.choiceCols.length > 0) {
         mapping.choiceCols.forEach((colIdx, i) => {
           const cText = row[colIdx];
           if (cText !== null && cText !== undefined && String(cText).trim() !== '') {
+            explicitChoicesCount++;
             choices.push({
               id: labels[i] || `O${i}`,
               label: labels[i] || `O${i}`,
@@ -37,6 +39,11 @@ export class QuestionBuilderService {
             });
           }
         });
+      }
+
+      // Check if this row is a footer, examiner signature, committee note, or non-question row
+      if (this.isFooterOrExaminerRow(String(qText), rawAnswer, mapping.choiceCols.length > 0, explicitChoicesCount)) {
+        return; // Ignore and skip footer / signature rows
       }
 
       // True / False fallback if choices not explicitly listed in Excel option columns
@@ -75,5 +82,32 @@ export class QuestionBuilderService {
     });
 
     return questions;
+  }
+
+  private isFooterOrExaminerRow(qText: string, rawAnswer: any, hasChoiceCols: boolean, explicitChoicesCount: number): boolean {
+    const text = String(qText || '').toLowerCase().trim();
+    if (!text) return true;
+
+    // Signature, Examiner, Committee, and Footer keywords
+    const footerKeywords = [
+      'إعداد', 'اعداد', 'إشراف', 'اشراف', 'رئيس اللجنة', 'اعضاء اللجنة', 'أعضاء اللجنة',
+      'توقيع', 'عضو اللجنة', 'الممتحن', 'المراجع', 'اللجنة الامتحانية', 'لجنة الاختبار',
+      'مع تمنياتنا', 'انتهت الأسئلة', 'انتهت الاسئلة', 'تم بحمد الله', 'النتيجة النهائية',
+      'ملاحظات', 'اسم المراجع', 'رقم البند', 'رقم الصفحة', 'اسم المرجع',
+      'examiner', 'signature', 'prepared by', 'approved by', 'committee', 'page '
+    ];
+
+    const isKeywordMatch = footerKeywords.some(kw => text.startsWith(kw) || (text.length < 60 && text.includes(kw)));
+    if (isKeywordMatch) {
+      return true;
+    }
+
+    // If choice columns exist in mapping, but this row has 0 choice text AND no correct answer
+    const hasAnswer = rawAnswer !== null && rawAnswer !== undefined && String(rawAnswer).trim() !== '';
+    if (hasChoiceCols && explicitChoicesCount === 0 && !hasAnswer) {
+      return true;
+    }
+
+    return false;
   }
 }

@@ -30,8 +30,19 @@ export class MarkdownParserService {
 
     const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
+    const isFooterOrExaminerText = (text: string): boolean => {
+      const norm = text.toLowerCase().trim();
+      const footerKeywords = [
+        'إعداد', 'اعداد', 'إشراف', 'اشراف', 'رئيس اللجنة', 'اعضاء اللجنة', 'أعضاء اللجنة',
+        'توقيع', 'عضو اللجنة', 'الممتحن', 'المراجع', 'اللجنة الامتحانية', 'لجنة الاختبار',
+        'مع تمنياتنا', 'انتهت الأسئلة', 'انتهت الاسئلة', 'تم بحمد الله',
+        'examiner', 'signature', 'prepared by', 'approved by', 'committee'
+      ];
+      return footerKeywords.some(kw => norm.startsWith(kw) || (norm.length < 60 && norm.includes(kw)));
+    };
+
     const saveCurrentQuestion = () => {
-      if (currentQText.trim() && currentChoices.length > 0) {
+      if (currentQText.trim() && currentChoices.length > 0 && !isFooterOrExaminerText(currentQText)) {
         const type: 'single' | 'multiple' = currentCorrectAnswers.length > 1 ? 'multiple' : 'single';
         const finalCorrect = currentCorrectAnswers.length === 1 
           ? currentCorrectAnswers[0] 
