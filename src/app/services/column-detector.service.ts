@@ -7,10 +7,19 @@ import { SheetInfo, DetectionResult, ColumnMapping } from '../models/excel.model
 export class ColumnDetectorService {
   private knownExcludes = [
     'serial', 'serial no.', 'score', 'difficulty', 'sharing range', 'range',
-    'label', 'lable', 'materials and instructions', 'comprehensive questions', 'materials',
+    'label', 'lable', 'materials and instructions', 'comprehensive questions',
     'المواد العامة', 'التعليمات', 'مطلوبة للأسئلة', 'شرح الإجابة', 'شرح', 'التفسير',
     'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'كود المرجع', 'qeustion type', 'question type',
     'question tybe', 'qeustion tybe', 'نوع السؤال', 'النتيجة', 'نطاقات مشتركة'
+  ];
+
+  // Narrower excludes for Pass 2 (content-based fallback) — only skip structural/numbering columns.
+  // When Pass 2 runs, the file's headers are already known to be unreliable/mismatched,
+  // so we must NOT filter on content-type header labels like 'materials and instructions'.
+  private pass2Excludes = [
+    'serial', 'serial no.', 'score', 'difficulty', 'range',
+    'label', 'lable', 'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'كود المرجع',
+    'qeustion type', 'question type', 'question tybe', 'qeustion tybe', 'نوع السؤال'
   ];
 
   private cleanHeader(h: any): string {
@@ -107,7 +116,9 @@ export class ColumnDetectorService {
         }
 
         const normH = this.cleanHeader(headers[colIdx] || '');
-        if (this.knownExcludes.some(ex => normH.includes(ex))) {
+        // Use narrower pass2Excludes here: headers may be mismatched/unreliable in files
+        // that need Pass 2 (e.g. col labeled 'materials and instructions' actually holds questions)
+        if (this.pass2Excludes.some(ex => normH.includes(ex))) {
           continue;
         }
 
