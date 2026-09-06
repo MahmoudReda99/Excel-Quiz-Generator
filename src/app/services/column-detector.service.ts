@@ -6,11 +6,11 @@ import { SheetInfo, DetectionResult, ColumnMapping } from '../models/excel.model
 })
 export class ColumnDetectorService {
   private knownExcludes = [
-    'serial no.', 'score', 'difficulty', 'sharing range',
-    'label', 'materials and instructions', 'comprehensive questions',
-    'المواد العامة', 'التعليمات', 'مطلوبة للأسئلة', 'شرح الإجابة', 'شرح',
-    'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'qeustion type', 'question type', 'question tybe', 'qeustion tybe',
-    'نوع السؤال', 'النتيجة', 'نطاقات مشتركة'
+    'serial', 'serial no.', 'score', 'difficulty', 'sharing range', 'range',
+    'label', 'lable', 'materials and instructions', 'comprehensive questions', 'materials',
+    'المواد العامة', 'التعليمات', 'مطلوبة للأسئلة', 'شرح الإجابة', 'شرح', 'التفسير',
+    'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'كود المرجع', 'qeustion type', 'question type',
+    'question tybe', 'qeustion tybe', 'نوع السؤال', 'النتيجة', 'نطاقات مشتركة'
   ];
 
   private cleanHeader(h: any): string {
@@ -48,69 +48,90 @@ export class ColumnDetectorService {
       }
     });
 
+    // Pass 1.5: Correct header label mismatch anomaly where header "Correct answer" is placed above Question Column data
+    if (mapping.correctAnswerCol !== null && sheet.rows && sheet.rows.length > 0) {
+      const ansCol = mapping.correctAnswerCol;
+      let totLen = 0, count = 0;
+      sheet.rows.slice(0, 15).forEach(r => {
+        if (r && r[ansCol] !== null && r[ansCol] !== undefined) {
+          totLen += String(r[ansCol]).trim().length;
+          count++;
+        }
+      });
+      const avgLen = count > 0 ? totLen / count : 0;
+      if (avgLen > 15) {
+        mapping.questionCol = ansCol;
+        mapping.correctAnswerCol = null;
+
+        let realAnsCol = -1;
+        const numCols = Math.max(headers.length, ...sheet.rows.map(r => r.length));
+        for (let c = 0; c < numCols; c++) {
+          if (c === mapping.questionCol || c === mapping.typeCol || mapping.choiceCols.includes(c)) continue;
+          let shortCnt = 0, total = 0;
+          sheet.rows.slice(0, 15).forEach(r => {
+            if (r && r[c] !== null && r[c] !== undefined) {
+              const str = String(r[c]).trim().toLowerCase();
+              if (str.length < 12 && (str === 'true' || str === 'false' || /^[a-h1-8]$/.test(str) || str.includes(';'))) {
+                shortCnt++;
+              }
+              total++;
+            }
+          });
+          if (total > 0 && shortCnt / total >= 0.5) {
+            realAnsCol = c;
+            break;
+          }
+        }
+        if (realAnsCol !== -1) {
+          mapping.correctAnswerCol = realAnsCol;
+        }
+      }
+    }
+
     // Cap auto-detected choice columns to 4 (A, B, C, D)
     if (mapping.choiceCols.length > 4) {
       mapping.choiceCols = mapping.choiceCols.slice(0, 4);
     }
 
     // Pass 2: Fallback detection for Question column if header is missing, dynamic, or null
-    if (mapping.questionCol === null) {
-      headers.forEach((h, index) => {
-        if (!h || mapping.questionCol !== null) return;
-        if (index === mapping.typeCol || index === mapping.explanationCol || 
-            index === mapping.correctAnswerCol || mapping.choiceCols.includes(index) ||
-            index === mapping.difficultyCol) {
-          return;
+    if (mapping.questionCol === null && sheet.rows && sheet.rows.length > 0) {
+      let maxAvgLength = 0;
+      let bestColIndex = -1;
+
+      const numCols = Math.max(headers.length, ...sheet.rows.map(r => r.length));
+      for (let colIdx = 0; colIdx < numCols; colIdx++) {
+        if (colIdx === mapping.typeCol || colIdx === mapping.explanationCol ||
+            colIdx === mapping.correctAnswerCol || mapping.choiceCols.includes(colIdx) ||
+            colIdx === mapping.difficultyCol) {
+          continue;
         }
 
-        const norm = this.cleanHeader(h);
-        if (this.knownExcludes.some(ex => norm.includes(ex))) {
-          return;
+        const normH = this.cleanHeader(headers[colIdx] || '');
+        if (this.knownExcludes.some(ex => normH.includes(ex))) {
+          continue;
         }
 
-        mapping.questionCol = index;
-      });
-
-      // If still null or questionCol is unmapped, find the column with the longest average text in data rows
-      if (mapping.questionCol === null && sheet.rows && sheet.rows.length > 0) {
-        let maxAvgLength = 0;
-        let bestColIndex = -1;
-
-        const numCols = Math.max(headers.length, ...sheet.rows.map(r => r.length));
-        for (let colIdx = 0; colIdx < numCols; colIdx++) {
-          if (colIdx === mapping.typeCol || colIdx === mapping.explanationCol ||
-              colIdx === mapping.correctAnswerCol || mapping.choiceCols.includes(colIdx) ||
-              colIdx === mapping.difficultyCol) {
-            continue;
-          }
-
-          const normH = this.cleanHeader(headers[colIdx] || '');
-          if (this.knownExcludes.some(ex => normH.includes(ex))) {
-            continue;
-          }
-
-          let totalLen = 0;
-          let count = 0;
-          sheet.rows.slice(0, 20).forEach(row => {
-            if (row && row[colIdx] !== null && row[colIdx] !== undefined) {
-              const valStr = String(row[colIdx]).trim();
-              if (valStr) {
-                totalLen += valStr.length;
-                count++;
-              }
+        let totalLen = 0;
+        let count = 0;
+        sheet.rows.slice(0, 20).forEach(row => {
+          if (row && row[colIdx] !== null && row[colIdx] !== undefined) {
+            const valStr = String(row[colIdx]).trim();
+            if (valStr) {
+              totalLen += valStr.length;
+              count++;
             }
-          });
-
-          const avgLen = count > 0 ? totalLen / count : 0;
-          if (avgLen > maxAvgLength) {
-            maxAvgLength = avgLen;
-            bestColIndex = colIdx;
           }
-        }
+        });
 
-        if (bestColIndex !== -1 && maxAvgLength > 10) {
-          mapping.questionCol = bestColIndex;
+        const avgLen = count > 0 ? totalLen / count : 0;
+        if (avgLen > maxAvgLength) {
+          maxAvgLength = avgLen;
+          bestColIndex = colIdx;
         }
+      }
+
+      if (bestColIndex !== -1 && maxAvgLength > 10) {
+        mapping.questionCol = bestColIndex;
       }
     }
 
@@ -151,10 +172,9 @@ export class ColumnDetectorService {
     if (/^choice\s+[a-h]/i.test(norm)) return true;
     if (/^الخيار\s*([أبجدa-h1-8]|الأول|الثاني|الثالث|الرابع)/i.test(norm)) return true;
     if (/^خيار\s*([أبجدa-h1-8]|الأول|الثاني|الثالث|الرابع)/i.test(norm)) return true;
-    if (/^اختيار\s*([أبجدa-h1-8]|الأول|الثاني|الثالث|الرابع)/i.test(norm)) return true;
     if (/^option\s+[1-8]/i.test(norm) || /^choice\s+[1-8]/i.test(norm)) return true;
     if (/^[a-h]$/i.test(norm)) return true;
-    if (['الخيار أ', 'الخيار ب', 'الخيار ج', 'الخيار د', 'خيار أ', 'خيار ب', 'خيار ج', 'خيار د', 'option a', 'option b', 'option c', 'option d', 'choice a', 'choice b', 'choice c', 'choice d', 'الاختيار الأول', 'الاختيار الثاني', 'الاختيار الثالث', 'الاختيار الرابع', 'الخيار الأول', 'الخيار الثاني', 'الخيار الثالث', 'الخيار الرابع'].some(p => norm.includes(p))) return true;
+    if (['الخيار أ', 'الخيار ب', 'الخيار ج', 'الخيار د', 'option a', 'option b', 'option c', 'option d', 'choice a', 'choice b', 'choice c', 'choice d', 'الاختيار الأول', 'الاختيار الثاني', 'الاختيار الثالث', 'الاختيار الرابع', 'الخيار الأول', 'الخيار الثاني', 'الخيار الثالث', 'الخيار الرابع'].some(p => norm.includes(p))) return true;
     return false;
   }
 
