@@ -9,7 +9,7 @@ export class ColumnDetectorService {
     'serial no.', 'score', 'difficulty', 'sharing range',
     'label', 'materials and instructions', 'comprehensive questions',
     'المواد العامة', 'التعليمات', 'مطلوبة للأسئلة', 'شرح الإجابة', 'شرح',
-    'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'qeustion type', 'question type',
+    'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'qeustion type', 'question type', 'question tybe', 'qeustion tybe',
     'نوع السؤال', 'النتيجة', 'نطاقات مشتركة'
   ];
 
@@ -35,10 +35,10 @@ export class ColumnDetectorService {
       
       if (this.isAnswerHeader(h) && mapping.correctAnswerCol === null) {
         mapping.correctAnswerCol = index;
-      } else if (this.isQuestionHeader(h) && mapping.questionCol === null) {
-        mapping.questionCol = index;
       } else if (this.isTypeHeader(h) && mapping.typeCol === null) {
         mapping.typeCol = index;
+      } else if (this.isQuestionHeader(h) && mapping.questionCol === null) {
+        mapping.questionCol = index;
       } else if (this.isExplanationHeader(h) && mapping.explanationCol === null) {
         mapping.explanationCol = index;
       } else if (this.isChoiceHeader(h)) {
@@ -53,7 +53,7 @@ export class ColumnDetectorService {
       mapping.choiceCols = mapping.choiceCols.slice(0, 4);
     }
 
-    // Pass 2: Fallback detection for Question column if header is dynamic/title-based
+    // Pass 2: Fallback detection for Question column if header is missing, dynamic, or null
     if (mapping.questionCol === null) {
       headers.forEach((h, index) => {
         if (!h || mapping.questionCol !== null) return;
@@ -70,6 +70,48 @@ export class ColumnDetectorService {
 
         mapping.questionCol = index;
       });
+
+      // If still null or questionCol is unmapped, find the column with the longest average text in data rows
+      if (mapping.questionCol === null && sheet.rows && sheet.rows.length > 0) {
+        let maxAvgLength = 0;
+        let bestColIndex = -1;
+
+        const numCols = Math.max(headers.length, ...sheet.rows.map(r => r.length));
+        for (let colIdx = 0; colIdx < numCols; colIdx++) {
+          if (colIdx === mapping.typeCol || colIdx === mapping.explanationCol ||
+              colIdx === mapping.correctAnswerCol || mapping.choiceCols.includes(colIdx) ||
+              colIdx === mapping.difficultyCol) {
+            continue;
+          }
+
+          const normH = this.cleanHeader(headers[colIdx] || '');
+          if (this.knownExcludes.some(ex => normH.includes(ex))) {
+            continue;
+          }
+
+          let totalLen = 0;
+          let count = 0;
+          sheet.rows.slice(0, 20).forEach(row => {
+            if (row && row[colIdx] !== null && row[colIdx] !== undefined) {
+              const valStr = String(row[colIdx]).trim();
+              if (valStr) {
+                totalLen += valStr.length;
+                count++;
+              }
+            }
+          });
+
+          const avgLen = count > 0 ? totalLen / count : 0;
+          if (avgLen > maxAvgLength) {
+            maxAvgLength = avgLen;
+            bestColIndex = colIdx;
+          }
+        }
+
+        if (bestColIndex !== -1 && maxAvgLength > 10) {
+          mapping.questionCol = bestColIndex;
+        }
+      }
     }
 
     const hasQuestion = mapping.questionCol !== null;
@@ -90,11 +132,12 @@ export class ColumnDetectorService {
   }
 
   private isQuestionHeader(h: string): boolean {
+    if (this.isTypeHeader(h)) return false;
     const norm = this.cleanHeader(h);
     if (this.knownExcludes.some(ex => norm.includes(ex))) return false;
     const matches = [
-      'question', 'questions', 'q.', 'q_text', 'qtitle', 'question text', 'question body',
-      'السؤال', 'سؤال', 'نص السؤال', 'أسئلة', 'الأسئلة', 'الجذعية', 'جذعية', 'سؤال تعليمي', 'مضمون السؤال'
+      'question text', 'question body', 'q_text', 'qtitle', 'نص السؤال', 'مضمون السؤال',
+      'question', 'questions', 'q.', 'السؤال', 'سؤال', 'أسئلة', 'الأسئلة', 'الجذعية', 'جذعية'
     ];
     return matches.some(p => norm === p || norm.includes(p));
   }
@@ -126,7 +169,10 @@ export class ColumnDetectorService {
 
   private isTypeHeader(h: string): boolean {
     const norm = this.cleanHeader(h);
-    return ['qeustion type', 'question type', 'type', 'النوع', 'نوع السؤال'].some(p => norm.includes(p));
+    return [
+      'qeustion type', 'question type', 'question tybe', 'qeustion tybe',
+      'qtype', 'q_type', 'type', 'النوع', 'نوع السؤال'
+    ].some(p => norm.includes(p));
   }
 
   private isExplanationHeader(h: string): boolean {
