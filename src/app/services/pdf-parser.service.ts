@@ -58,6 +58,26 @@ export class PdfParserService {
       fullText += pageText + '\n\n';
     }
     
-    return fullText;
+    return this.fixArabicLigatures(fullText);
+  }
+
+  private fixArabicLigatures(str: string): string {
+    // Fix definite article with Hamza reversals caused by PDF Lam-Alef ligature extraction issues
+    // Covers prefixes: ا, وا, فا, با, كا
+    // e.g. األقمار -> الأقمار, واإلضافة -> والإضافة
+    let fixed = str.replace(/(^|[\s،.؟!\-()\[\]])([وبفك]?)ا([أإآا])ل/g, '$1$2ال$3');
+    
+    // Fix li- prefix: لأل -> للأ
+    fixed = fixed.replace(/(^|[\s،.؟!\-()\[\]])ل([أإآا])ل/g, '$1لل$2');
+    
+    // Fix Alif-Maksura + Lam reversal at the end of words: ىل -> لى
+    // e.g. إىل -> إلى, عىل -> على
+    fixed = fixed.replace(/ىل(?=[\s،.؟!\-()\[\]]|$)/g, 'لى');
+    
+    // Fix Tanween reversal: ًال -> لاً
+    // e.g. سؤاًال -> سؤالاً
+    fixed = fixed.replace(/ًال/g, 'لاً');
+    
+    return fixed;
   }
 }
