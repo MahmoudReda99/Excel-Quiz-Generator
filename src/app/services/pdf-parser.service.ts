@@ -122,6 +122,36 @@ export class PdfParserService {
       fixed = fixed.split(mangled).join(correct);
     }
     
+    // 4. Fix standalone words where 'لا' was reversed to 'ال'
+    const standaloneReversals: Record<string, string> = {
+      'ال': 'لا',
+      'وال': 'ولا',
+      'فال': 'فلا',
+      'إال': 'إلا',
+      'أال': 'ألا',
+      'كال': 'كلا',
+      'بال': 'بلا',
+      'أوال': 'أولا',
+      'حاال': 'حالا',
+      'مستقال': 'مستقلا',
+      'أصال': 'أصلا',
+      'بدال': 'بدلا',
+      'كامال': 'كاملا',
+      'شكال': 'شكلا',
+      'فعاال': 'فعالا',
+      'عاجال': 'عاجلا',
+      'قابال': 'قابلا',
+      'شامال': 'شاملا',
+      'مفصال': 'مفصلا'
+    };
+
+    const standaloneWordsPattern = Object.keys(standaloneReversals).join('|');
+    const standaloneRegex = new RegExp(`(^|[\\s،.؟!\\-()\\[\\]])(${standaloneWordsPattern})(?=[\\s،.؟!\\-()\\[\\]]|$)`, 'g');
+    
+    fixed = fixed.replace(standaloneRegex, (match, p1, p2) => {
+      return p1 + standaloneReversals[p2];
+    });
+
     return fixed;
   }
 }
