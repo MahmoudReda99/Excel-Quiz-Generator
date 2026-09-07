@@ -25,18 +25,34 @@ export class PdfParserService {
       const textContent = await page.getTextContent();
       
       let lastY = -1;
+      let lastX = -1;
+      let lastW = 0;
       let pageText = '';
       
       for (const item of textContent.items as any[]) {
         if (lastY !== -1 && Math.abs(lastY - item.transform[5]) > 4) {
           // Significant change in Y coordinate indicates a new line
           pageText += '\n';
+          lastX = -1;
+        } else if (lastX !== -1) {
+          let gap = 0;
+          if (item.transform[4] < lastX) {
+             // RTL: Previous character is to the right of current character.
+             gap = lastX - (item.transform[4] + item.width);
+          } else {
+             // LTR: Previous character is to the left of current character.
+             gap = item.transform[4] - (lastX + lastW);
+          }
+          
+          if (gap > 2) {
+             pageText += ' ';
+          }
         }
         
-        // Add a space only if PDF.js explicitly provides an empty item for spacing,
-        // or just append the string. We rely on the PDF's own space characters.
         pageText += item.str;
         lastY = item.transform[5];
+        lastX = item.transform[4];
+        lastW = item.width;
       }
       
       fullText += pageText + '\n\n';
