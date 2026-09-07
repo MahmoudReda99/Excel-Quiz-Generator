@@ -26,6 +26,7 @@ export class MarkdownParserService {
     let currentChoices: QuizChoice[] = [];
     let currentCorrectAnswers: string[] = [];
     let currentExplanation: string | null = null;
+    let hasCurrentHeader = false;
     let optionIndex = 0;
 
     const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -54,6 +55,12 @@ export class MarkdownParserService {
     const saveCurrentQuestion = () => {
       let qTextClean = currentQText.trim();
       if (!qTextClean) return;
+
+      // Ignore intro/footer text that has no header AND no explicit choices
+      if (!hasCurrentHeader && currentChoices.length === 0) {
+        currentQText = '';
+        return;
+      }
 
       // Clean HTML comment tags if present
       qTextClean = qTextClean.replace(/<!--[\s\S]*?-->/g, '').trim();
@@ -140,12 +147,12 @@ export class MarkdownParserService {
 
       if (isHeader && !choiceMatch && !answerKeyMatch) {
         saveCurrentQuestion();
-        if (qHeaderMatch && qHeaderMatch[1]) {
-          const bodyPart = qHeaderMatch[1].trim();
-          if (bodyPart) {
-            currentQText = bodyPart;
-          }
-        }
+        hasCurrentHeader = true;
+        currentQText = qHeaderMatch ? qHeaderMatch[1].trim() : cleanLine.replace(/^#+\s*/, '').trim();
+        currentChoices = [];
+        currentCorrectAnswers = [];
+        currentExplanation = null;
+        optionIndex = 0;
       } else if (answerKeyMatch) {
         const rawAns = answerKeyMatch[1].trim();
         if (rawAns === 'صح' || rawAns.toLowerCase() === 'true' || rawAns === 'نعم') {
