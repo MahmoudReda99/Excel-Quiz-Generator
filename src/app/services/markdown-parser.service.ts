@@ -177,10 +177,10 @@ export class MarkdownParserService {
 
         // Extract explanation if present at the end of the choice (e.g. from PDF: (المرجع، ص 333))
         if (isCorrectChoice || choiceText.includes('المرجع')) {
-          const explanationMatch = choiceText.match(/(.*?)\s*[\(\)\[\]]\s*(.*?(?:المرجع|ص\s*\d+|بند|صفحة).*?)[\(\)\[\]]\s*$/);
+          const explanationMatch = choiceText.match(/(.*?)\s*[\(\)\[\]]\s*(.*?(?:المرجع|ص\s*\d+|بند|صفحة).*?)[\(\)\[\]]?\s*$/);
           if (explanationMatch) {
             choiceText = explanationMatch[1].replace(/[—\-\s]+$/, '').trim();
-            const exp = explanationMatch[2].trim();
+            const exp = explanationMatch[2].replace(/[\)\(\]\[]\s*$/, '').trim();
             currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + exp;
           }
         }
@@ -205,7 +205,24 @@ export class MarkdownParserService {
       } else if (!line.startsWith('#')) {
         const cleanContent = line.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
         if (cleanContent) {
-          currentQText = (currentQText ? currentQText + '\n' : '') + cleanContent;
+          if (currentChoices.length > 0) {
+            if (currentExplanation && (currentExplanation.includes('المرجع') || currentExplanation.includes('ص '))) {
+              let cleanExpLine = cleanContent.replace(/[\)\(\]\[]\s*$/, '');
+              currentExplanation += ' ' + cleanExpLine;
+            } else {
+              let lastChoice = currentChoices[currentChoices.length - 1];
+              lastChoice.text += ' ' + cleanContent;
+              
+              const expRegex = /(.*?)\s*[\(\)\[\]]\s*(.*?(?:المرجع|ص\s*\d+|بند|صفحة).*?)[\(\)\[\]]?\s*$/;
+              const expMatch = lastChoice.text.match(expRegex);
+              if (expMatch) {
+                lastChoice.text = expMatch[1].replace(/[—\-\s]+$/, '').trim();
+                currentExplanation = expMatch[2].replace(/[\)\(\]\[]\s*$/, '').trim();
+              }
+            }
+          } else {
+            currentQText = (currentQText ? currentQText + '\n' : '') + cleanContent;
+          }
         }
       }
     }
