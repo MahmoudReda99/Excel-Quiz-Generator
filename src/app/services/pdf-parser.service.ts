@@ -31,10 +31,10 @@ export class PdfParserService {
         if (lastY !== -1 && Math.abs(lastY - item.transform[5]) > 4) {
           // Significant change in Y coordinate indicates a new line
           pageText += '\n';
-        } else if (lastY !== -1) {
-          // Same line, add a space
-          pageText += ' ';
         }
+        
+        // Add a space only if PDF.js explicitly provides an empty item for spacing,
+        // or just append the string. We rely on the PDF's own space characters.
         pageText += item.str;
         lastY = item.transform[5];
       }
