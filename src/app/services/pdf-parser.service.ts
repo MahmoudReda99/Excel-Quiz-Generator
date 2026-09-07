@@ -62,10 +62,20 @@ export class PdfParserService {
   }
 
   private fixArabicLigatures(str: string): string {
-    // Fix definite article with Hamza reversals caused by PDF Lam-Alef ligature extraction issues
+    // 1. Fix global bracket reversals common in Arabic PDF extractions
+    // When extracted without proper BIDI formatting, '(' and ')' are swapped.
+    let fixed = str.split('').map(char => {
+      if (char === '(') return ')';
+      if (char === ')') return '(';
+      if (char === '[') return ']';
+      if (char === ']') return '[';
+      return char;
+    }).join('');
+
+    // 2. Fix definite article with Hamza reversals caused by PDF Lam-Alef ligature extraction issues
     // Covers prefixes: ا, وا, فا, با, كا
     // e.g. األقمار -> الأقمار, واإلضافة -> والإضافة
-    let fixed = str.replace(/(^|[\s،.؟!\-()\[\]])([وبفك]?)ا([أإآا])ل/g, '$1$2ال$3');
+    fixed = fixed.replace(/(^|[\s،.؟!\-()\[\]])([وبفك]?)ا([أإآا])ل/g, '$1$2ال$3');
     
     // Fix li- prefix: لأل -> للأ
     fixed = fixed.replace(/(^|[\s،.؟!\-()\[\]])ل([أإآا])ل/g, '$1لل$2');
@@ -77,6 +87,40 @@ export class PdfParserService {
     // Fix Tanween reversal: ًال -> لاً
     // e.g. سؤاًال -> سؤالاً
     fixed = fixed.replace(/ًال/g, 'لاً');
+    
+    // 3. Fix common internal "لا" ligatures extracted as "ال"
+    const reversedLigatureWords: Record<string, string> = {
+      'إطالق': 'إطلاق',
+      'إخالء': 'إخلاء',
+      'إسالم': 'إسلام',
+      'إعالن': 'إعلان',
+      'إغالق': 'إغلاق',
+      'إصالح': 'إصلاح',
+      'إحالل': 'إحلال',
+      'إخالل': 'إخلال',
+      'استغالل': 'استغلال',
+      'استطالع': 'استطلاع',
+      'استهالك': 'استهلاك',
+      'خالصة': 'خلاصة',
+      'حاالت': 'حالات',
+      'السالم': 'السلام',
+      'الميالد': 'الميلاد',
+      'العالقات': 'العلاقات',
+      'صالحيات': 'صلاحيات',
+      'صالحية': 'صلاحية',
+      'غالف': 'غلاف',
+      'تالعب': 'تلاعب',
+      'سالح': 'سلاح',
+      'خالل': 'خلال',
+      'مالحظات': 'ملاحظات',
+      'مالزم': 'ملازم',
+      'داللة': 'دلالة',
+      'دالئل': 'دلائل'
+    };
+
+    for (const [mangled, correct] of Object.entries(reversedLigatureWords)) {
+      fixed = fixed.split(mangled).join(correct);
+    }
     
     return fixed;
   }
