@@ -119,18 +119,24 @@ export class MarkdownParserService {
       // Check for Explanation line: > Explanation text or Explanation: text or الشرح: text
       const expMatch = cleanLine.match(/^(?:>\s*|(?:Explanation|الشرح|التفسير)[:\s]+)(.+)$/i);
 
-      // Enhanced Choice matching to support [ الإجابة الصحيحة ] marker
+      // Enhanced Choice matching to support [ الإجابة الصحيحة ] marker even with no spaces
       let isCorrectChoice = false;
       let cleanLineForChoice = line;
-      if (cleanLineForChoice.includes('[ الإجابة الصحيحة ]') || cleanLineForChoice.includes('[الإجابة الصحيحة]')) {
+      let lineNoSpaces = cleanLineForChoice.replace(/\s+/g, '');
+
+      if (lineNoSpaces.includes('الإجابةالصحيحة') || lineNoSpaces.includes('اإلجابةالصحيحة')) {
         isCorrectChoice = true;
-        cleanLineForChoice = cleanLineForChoice.replace(/\[\s*الإجابة الصحيحة\s*\]/g, '').trim();
+        // Remove the marker, being resilient to missing spaces and flipped brackets
+        cleanLineForChoice = cleanLineForChoice.replace(/^[^()]*?(الإجابة|اإلجابة)[^()]*?(الصحيحة|لصحيحة)[^()]*?[\]\[]/g, '').trim();
+        cleanLineForChoice = cleanLineForChoice.replace(/^[-—\s\[\]]+/, '').trim();
       } else if (cleanLineForChoice.match(/\[[xX]\]/)) {
         isCorrectChoice = true;
       }
+      
+      cleanLineForChoice = cleanLineForChoice.replace(/^[-—]\s*/, '').trim();
 
-      // Check for Choice line: - (أ) text or - A. text or (أ) text
-      const choiceMatch = cleanLineForChoice.match(/^(?:[\-\*\+]\s*)?(?:\[[ xX]\]\s*)?(?:\*\*|\b)?\(?([A-Ha-hأ-ي1-8])[\.\)\:\-]\)?(?:\*\*|\b)?\s*(.+)$/);
+      // Check for Choice line: - (أ) text or - A. text or (أ) text or )أ( text
+      const choiceMatch = cleanLineForChoice.match(/^(?:\[[ xX]\]\s*)?(?:\*\*|\b)?[\(\)]?([A-Ha-hأ-ي1-8])[\.\)\:\-\(][\(\)]?(?:\*\*|\b)?\s*(.+)$/);
 
       if (isHeader && !choiceMatch && !answerKeyMatch) {
         saveCurrentQuestion();
@@ -166,12 +172,14 @@ export class MarkdownParserService {
           label = arabicChoiceMap[label];
         }
         let choiceText = choiceMatch[2].replace(/^\*\*\)?\s*/, '').replace(/\*\*$/, '').trim();
+        // Clean up trailing dashes
+        choiceText = choiceText.replace(/[—\-\s]+$/, '');
 
         // Extract explanation if present at the end of the choice (e.g. from PDF: (المرجع، ص 333))
-        if (isCorrectChoice || choiceText.includes('(المرجع')) {
-          const explanationMatch = choiceText.match(/(.*?)\s*\(([^)]*(?:المرجع|ص\s*\d+|بند|صفحة)[^)]*)\)$/);
+        if (isCorrectChoice || choiceText.includes('المرجع')) {
+          const explanationMatch = choiceText.match(/(.*?)\s*[\(\)\[\]]\s*(.*?(?:المرجع|ص\s*\d+|بند|صفحة).*?)[\(\)\[\]]\s*$/);
           if (explanationMatch) {
-            choiceText = explanationMatch[1].trim();
+            choiceText = explanationMatch[1].replace(/[—\-\s]+$/, '').trim();
             const exp = explanationMatch[2].trim();
             currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + exp;
           }
