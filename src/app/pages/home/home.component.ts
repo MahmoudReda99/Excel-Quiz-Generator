@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { ExcelParserService } from '../../services/excel-parser.service';
 import { MarkdownParserService } from '../../services/markdown-parser.service';
+import { PdfParserService } from '../../services/pdf-parser.service';
 import { QuizStateService } from '../../services/quiz-state.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { ExcelData } from '../../models/excel.model';
@@ -13,6 +14,7 @@ interface SelectedFileItem {
   buffer: ArrayBuffer | null;
   text: string | null;
   isMd: boolean;
+  isPdf: boolean;
   readPromise: Promise<ArrayBuffer | string>;
 }
 
@@ -52,11 +54,14 @@ interface SelectedFileItem {
               *ngFor="let selected of selectedFiles; let i = index" 
               class="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-800">
               <div class="flex items-center gap-2.5 truncate me-2">
-                <span class="text-lg">{{ selected.isMd ? '📝' : '📊' }}</span>
+                <span class="text-lg">{{ selected.isPdf ? '📕' : (selected.isMd ? '📝' : '📊') }}</span>
                 <span class="truncate">{{ selected.file.name }}</span>
                 <span class="text-xs text-gray-400 font-normal">({{ formatSize(selected.file.size) }})</span>
                 <span *ngIf="selected.isMd" class="text-[10px] text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full font-bold">
                   Markdown
+                </span>
+                <span *ngIf="selected.isPdf" class="text-[10px] text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full font-bold">
+                  PDF
                 </span>
                 <span *ngIf="!selected.buffer && !selected.text" class="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
                   تجهيز
@@ -102,6 +107,7 @@ interface SelectedFileItem {
 export class HomeComponent {
   private excelParser = inject(ExcelParserService);
   private mdParser = inject(MarkdownParserService);
+  private pdfParser = inject(PdfParserService);
   private quizState = inject(QuizStateService);
   private router = inject(Router);
 
@@ -114,20 +120,31 @@ export class HomeComponent {
     const existingNames = new Set(this.selectedFiles.map(selected => selected.file.name));
     files.forEach(f => {
       if (!existingNames.has(f.name)) {
-        const isMd = f.name.toLowerCase().endsWith('.md') || f.name.toLowerCase().endsWith('.markdown');
+        const isMd = f.name.toLowerCase().endsWith('.md') || f.name.toLowerCase().endsWith('.markdown') || f.name.toLowerCase().endsWith('.txt');
+        const isPdf = f.name.toLowerCase().endsWith('.pdf');
         this.progressMessage = `جاري تجهيز ${f.name}...`;
+
+        let readPromise: Promise<ArrayBuffer | string>;
+        if (isMd) {
+          readPromise = this.mdParser.readMarkdownFile(f);
+        } else if (isPdf) {
+          readPromise = this.pdfParser.extractText(f);
+        } else {
+          readPromise = this.excelParser.readFileBuffer(f);
+        }
 
         const selected: SelectedFileItem = {
           file: f,
           buffer: null,
           text: null,
           isMd,
-          readPromise: isMd ? this.mdParser.readMarkdownFile(f) : this.excelParser.readFileBuffer(f)
+          isPdf,
+          readPromise
         };
 
         selected.readPromise
           .then(res => {
-            if (isMd) {
+            if (isMd || isPdf) {
               selected.text = res as string;
             } else {
               selected.buffer = res as ArrayBuffer;
@@ -176,12 +193,12 @@ export class HomeComponent {
       this.progressMessage = 'جاري التأكد من جاهزية الملفات...';
       const preparedFiles = await Promise.all(
         this.selectedFiles.map(async selected => {
-          if (selected.isMd) {
+          if (selected.isMd || selected.isPdf) {
             const text = selected.text || await (selected.readPromise as Promise<string>);
-            return { file: selected.file, isMd: true, text, buffer: null };
+            return { file: selected.file, isMd: selected.isMd, isPdf: selected.isPdf, text, buffer: null };
           } else {
             const buffer = selected.buffer || await (selected.readPromise as Promise<ArrayBuffer>);
-            return { file: selected.file, isMd: false, buffer, text: null };
+            return { file: selected.file, isMd: false, isPdf: false, buffer, text: null };
           }
         })
       );
@@ -198,15 +215,15 @@ export class HomeComponent {
       this.progressMessage = '';
       this.errorMessage = error instanceof Error && error.message
         ? error.message
-        : 'فشل في تحليل بعض الملفات. يرجى التأكد من أن الملفات بصيغة .xlsx أو .xls أو .md جديدة.';
+        : 'فشل في تحليل بعض الملفات. يرجى التأكد من أن الملفات بصيغة .xlsx أو .pdf أو .md جديدة.';
     } finally {
       this.isLoading = false;
     }
   }
 
-  private buildExcelData(preparedFiles: Array<{ file: File; isMd: boolean; buffer: ArrayBuffer | null; text: string | null }>): ExcelData {
+  private buildExcelData(preparedFiles: Array<{ file: File; isMd: boolean; isPdf: boolean; buffer: ArrayBuffer | null; text: string | null }>): ExcelData {
     const parsedList: ExcelData[] = preparedFiles.map(p => {
-      if (p.isMd && p.text !== null) {
+      if ((p.isMd || p.isPdf) && p.text !== null) {
         return this.mdParser.convertMarkdownToExcelData(p.file.name, p.file.size, p.text);
       } else if (p.buffer) {
         return this.excelParser.readWorkbookBuffer(p.file.name, p.file.size, p.buffer);

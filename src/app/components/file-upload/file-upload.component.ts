@@ -25,7 +25,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         {{ 'upload.dragDrop' | translate }}
       </h3>
       <p class="text-xs font-semibold text-gray-500 mb-4">
-        (يدعم ملفات إكسل .xlsx / .xls وملفات ماركداون .md للدمج المباشر)
+        (يدعم ملفات إكسل .xlsx وملفات .md ومؤخراً .pdf للدمج المباشر)
       </p>
 
       <div class="mt-4 inline-flex items-center gap-2">
@@ -34,7 +34,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           #fileInput
           class="hidden"
           multiple
-          accept=".xlsx,.xls,.md,.markdown,.XLSX,.XLS,.MD,.MARKDOWN,text/markdown,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/octet-stream"
+          accept=".xlsx,.xls,.md,.markdown,.pdf,application/pdf"
           (change)="onFileSelected($event)"
         />
         <button
@@ -61,9 +61,11 @@ export class FileUploadComponent {
       name.endsWith('.xls') || 
       name.endsWith('.md') || 
       name.endsWith('.markdown') || 
+      name.endsWith('.pdf') || 
       type.includes('sheet') || 
       type.includes('excel') || 
       type.includes('markdown') || 
+      type.includes('pdf') || 
       type.includes('text') || 
       type === 'application/octet-stream' ||
       type === ''

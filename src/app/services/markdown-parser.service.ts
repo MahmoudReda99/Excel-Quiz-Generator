@@ -105,12 +105,13 @@ export class MarkdownParserService {
       // Clean line without bold asterisks/underscores for pattern testing
       const cleanLine = line.replace(/[*_]/g, ' ').replace(/\s+/g, ' ').trim();
 
-      // Check for Question Header: #### السؤال 1 , # 1. , ## Question 1: , 1. , س1: , Q1:
-      const isHeader = /^#+\s*/.test(line) || 
-                       /^(?:السؤال|سؤال|س|Q|Question)\s*\d+[:\.\-]?$/i.test(cleanLine) ||
-                       /^\d+[\.\-\)]\s*$/i.test(cleanLine);
-      
-      const qHeaderMatch = line.match(/^(?:#+\s*|\d+[\.\-\)]\s*|س\s*\d+[:\.\-]\s*|Q\d+[:\.\-]\s*|Question\s*\d+[:\.\-]\s*)(.+)$/i);
+      // Check for Question Header: #### السؤال 1 , 1. , س1: , Q1: , السؤال 1:
+      const qHeaderMatch = line.match(/^(?:#+\s*|\d+[\.\-\)]\s*|(?:السؤال|سؤال|س|Q|Question)\s*\d+[:\.\-]?\s*)(.*)$/i);
+      const isHeader = !!qHeaderMatch && (
+        line.startsWith('#') || 
+        /^(?:السؤال|سؤال|س|Q|Question)\s*\d+/i.test(line) ||
+        /^\d+[\.\-\)]/i.test(line)
+      );
       
       // Check for Answer key line: **الإجابة:** A or Answer: A,C or الإجابة: صح
       const answerKeyMatch = cleanLine.match(/^(?:Answer|Correct Answer|Correct|الإجابة|إجابة|الحل|الإجابة الصحيحة)[:\s]+(.+)$/i);
@@ -118,14 +119,24 @@ export class MarkdownParserService {
       // Check for Explanation line: > Explanation text or Explanation: text or الشرح: text
       const expMatch = cleanLine.match(/^(?:>\s*|(?:Explanation|الشرح|التفسير)[:\s]+)(.+)$/i);
 
-      // Check for Choice line: - **A)** text or - A. text or - [ ] A) text
-      const choiceMatch = line.match(/^(?:[\-\*\+]\s*)?(?:\[[ xX]\]\s*)?(?:\*\*|\b)?\(?([A-Ha-hأ-ي1-8])[\.\)\:]\)?(?:\*\*|\b)?\s*(.+)$/);
+      // Enhanced Choice matching to support [ الإجابة الصحيحة ] marker
+      let isCorrectChoice = false;
+      let cleanLineForChoice = line;
+      if (cleanLineForChoice.includes('[ الإجابة الصحيحة ]') || cleanLineForChoice.includes('[الإجابة الصحيحة]')) {
+        isCorrectChoice = true;
+        cleanLineForChoice = cleanLineForChoice.replace(/\[\s*الإجابة الصحيحة\s*\]/g, '').trim();
+      } else if (cleanLineForChoice.match(/\[[xX]\]/)) {
+        isCorrectChoice = true;
+      }
+
+      // Check for Choice line: - (أ) text or - A. text or (أ) text
+      const choiceMatch = cleanLineForChoice.match(/^(?:[\-\*\+]\s*)?(?:\[[ xX]\]\s*)?(?:\*\*|\b)?\(?([A-Ha-hأ-ي1-8])[\.\)\:\-]\)?(?:\*\*|\b)?\s*(.+)$/);
 
       if (isHeader && !choiceMatch && !answerKeyMatch) {
         saveCurrentQuestion();
         if (qHeaderMatch && qHeaderMatch[1]) {
           const bodyPart = qHeaderMatch[1].trim();
-          if (!/^(?:السؤال|سؤال|س|Q|Question)?\s*\d+[:\.\-]?$/i.test(bodyPart)) {
+          if (bodyPart) {
             currentQText = bodyPart;
           }
         }
@@ -148,7 +159,7 @@ export class MarkdownParserService {
           });
         }
       } else if (expMatch) {
-        currentExplanation = (currentExplanation ? currentExplanation + ' ' : '') + expMatch[1].trim();
+        currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + expMatch[1].trim();
       } else if (choiceMatch) {
         let label = choiceMatch[1].toUpperCase();
         if (arabicChoiceMap[label]) {
@@ -156,7 +167,17 @@ export class MarkdownParserService {
         }
         let choiceText = choiceMatch[2].replace(/^\*\*\)?\s*/, '').replace(/\*\*$/, '').trim();
 
-        let isChecked = false;
+        // Extract explanation if present at the end of the choice (e.g. from PDF: (المرجع، ص 333))
+        if (isCorrectChoice || choiceText.includes('(المرجع')) {
+          const explanationMatch = choiceText.match(/(.*?)\s*\(([^)]*(?:المرجع|ص\s*\d+|بند|صفحة)[^)]*)\)$/);
+          if (explanationMatch) {
+            choiceText = explanationMatch[1].trim();
+            const exp = explanationMatch[2].trim();
+            currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + exp;
+          }
+        }
+
+        let isChecked = isCorrectChoice;
         if (line.includes('[x]') || line.includes('[X]')) {
           isChecked = true;
         }
@@ -176,7 +197,7 @@ export class MarkdownParserService {
       } else if (!line.startsWith('#')) {
         const cleanContent = line.replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
         if (cleanContent) {
-          currentQText = (currentQText ? currentQText + ' ' : '') + cleanContent;
+          currentQText = (currentQText ? currentQText + '\n' : '') + cleanContent;
         }
       }
     }
