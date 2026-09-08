@@ -161,11 +161,19 @@ export class PdfParserService {
     // Remove Tatweel / Kashida (\u0640)
     fixed = fixed.replace(/\u0640/g, '');
 
-    // Normalize Answer Key markers and strip preceding trailing choice labels
-    fixed = fixed.replace(/(?:[\(\)]?\s*[أبجدa-h1-8]?\s*[\(\)]?\s*:?\s*)?(?:الإجابة الصحيحة|اإلجابة الصحيحة|ةحيحصلا الإجابة|ةحيحصلا اإلجابة|ةحيحصلا الجابة|ةحيحصلا اجابة|ةحيحصلا الإجابة)\s*:?/gi, '\nالإجابة الصحيحة: ');
+    // Normalize True / False reversed pairs (e.g. حص ) أ أطخ ) ب)
+    fixed = fixed.replace(/حص\s*[\(\)]\s*([أA])\s*أطخ\s*[\(\)]\s*([بB])/gi, '\n($1) صح\n($2) خطأ\n');
+    fixed = fixed.replace(/أطخ\s*[\(\)]\s*([بB])\s*حص\s*[\(\)]\s*([أA])/gi, '\n($1) خطأ\n($2) صح\n');
+    fixed = fixed.replace(/(?:^|\s+)حص\s*[\(\)]\s*([أA])/gi, '\n($1) صح\n');
+    fixed = fixed.replace(/(?:^|\s+)أطخ\s*[\(\)]\s*([بB])/gi, '\n($1) خطأ\n');
 
-    // Normalize question headers cleanly (both LTR & RTL reversed like لؤسملا 1 or 1 لؤسملا or السؤال 1)
-    fixed = fixed.replace(/(?:(?:السؤال|سؤال|س|Q|Question|لؤسملا|لؤئسملا|لؤمسملا)\s*:?\s*(\d+)|(\d+)\s*:?\s*(?:السؤال|سؤال|س|Q|Question|لؤسملا|لؤئسملا|لؤمسملا))/gi, (m, p1, p2) => '\n\n#### السؤال ' + (p1 || p2) + ' :\n');
+    // Normalize Answer Key markers and strip preceding trailing choice labels
+    fixed = fixed.replace(/([\(\)]?\s*[أبجدa-h1-8]\s*[\(\)]?|حص\s*[\(\)]?\s*[أA]\s*[\(\)]?|أطخ\s*[\(\)]?\s*[بB]\s*[\(\)]?)\s*[:\s]*(?:ة\s*حيحصلا|الصحيحة|اإلجابة|الإجابة|الحل)\s*(?:ة\s*باجلاإ|باجلاإ|الإجابة|اإلجابة|الصحيحة)[:\s]*/gi, '\nالإجابة الصحيحة: $1\n');
+    fixed = fixed.replace(/[:\s]*(?:ة\s*حيحصلا|الصحيحة|اإلجابة|الإجابة|الحل)\s*(?:ة\s*باجلاإ|باجلاإ|الإجابة|اإلجابة|الصحيحة)[:\s]*/gi, '\nالإجابة الصحيحة: ');
+
+    // Normalize question headers cleanly (both LTR & RTL reversed like الؤسلا 1 or 1 الؤسلا or لؤسملا 1 or السؤال 1)
+    const headerRegex = /(?:[:\s]+(\d+)\s*(?:الؤسلا|لؤسملا|لؤئسملا|السؤال|سؤال|س|Q|Question)|(?:الؤسلا|لؤسملا|لؤئسملا|السؤال|سؤال|س|Q|Question)\s*[:\s]*(\d+))/gi;
+    fixed = fixed.replace(headerRegex, (m, p1, p2) => '\n\n#### السؤال ' + (p1 || p2) + ' :\n');
 
     // Normalize Choice markers like "( أ (" or "( أ )" or "أ(" or "( أ "
     fixed = fixed.replace(/[\(\)\[\]]\s*([أبجدa-h1-8])\s*[\(\)\[\]]/gi, '\n($1) ');
