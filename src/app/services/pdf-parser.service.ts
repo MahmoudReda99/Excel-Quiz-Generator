@@ -157,6 +157,20 @@ export class PdfParserService {
       return p1 + standaloneReversals[p2];
     });
 
+    // 5. Structural normalization for mangled / single-paragraph RTL PDF extractions
+    // Remove Tatweel / Kashida (\u0640)
+    fixed = fixed.replace(/\u0640/g, '');
+
+    // Normalize Answer Key markers and strip preceding trailing choice labels
+    fixed = fixed.replace(/(?:[\(\)]?\s*[أبجدa-h1-8]?\s*[\(\)]?\s*:?\s*)?(?:الإجابة الصحيحة|اإلجابة الصحيحة|ةحيحصلا الإجابة|ةحيحصلا اإلجابة|ةحيحصلا الجابة|ةحيحصلا اجابة|ةحيحصلا الإجابة)\s*:?/gi, '\nالإجابة الصحيحة: ');
+
+    // Normalize question headers cleanly (both LTR & RTL reversed like لؤسملا 1 or 1 لؤسملا or السؤال 1)
+    fixed = fixed.replace(/(?:(?:السؤال|سؤال|س|Q|Question|لؤسملا|لؤئسملا|لؤمسملا)\s*:?\s*(\d+)|(\d+)\s*:?\s*(?:السؤال|سؤال|س|Q|Question|لؤسملا|لؤئسملا|لؤمسملا))/gi, (m, p1, p2) => '\n\n#### السؤال ' + (p1 || p2) + ' :\n');
+
+    // Normalize Choice markers like "( أ (" or "( أ )" or "أ(" or "( أ "
+    fixed = fixed.replace(/[\(\)\[\]]\s*([أبجدa-h1-8])\s*[\(\)\[\]]/gi, '\n($1) ');
+    fixed = fixed.replace(/(^|\s+)[\(\)\[\]]?\s*([أبجدa-h1-8])\s*[\(\)\[\]](?=\s*[\u0600-\u06FFa-zA-Z0-9])/gi, '\n($2) ');
+
     return fixed;
   }
 }
