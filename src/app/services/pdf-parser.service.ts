@@ -12,9 +12,14 @@ export class PdfParserService {
 
   async extractText(file: File): Promise<string> {
     const arrayBuffer = await file.arrayBuffer();
+    const cMapUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/cmaps/`;
     
     // Load the PDF document
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const loadingTask = pdfjsLib.getDocument({ 
+      data: arrayBuffer,
+      cMapUrl: cMapUrl,
+      cMapPacked: true
+    });
     const pdf = await loadingTask.promise;
     
     let fullText = '';
