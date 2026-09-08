@@ -204,7 +204,13 @@ export class HomeComponent {
       );
       this.progressMessage = 'جاري استخراج الأسئلة والإجابات...';
       const mergedData = this.buildExcelData(preparedFiles);
-      this.progressMessage = `تم استخراج ${mergedData.sheets.length} ورقة. جاري فتح صفحة التحليل...`;
+      
+      const validSheets = mergedData.sheets.filter(s => s.rowCount > 0);
+      if (validSheets.length === 0) {
+        throw new Error('لم يتم العثور على أسئلة أو نصوص قابلة للقراءة في الملف. إذا كان ملف PDF، تأكد أنه يحتوي على نصوص وليس مجرد صور مقصوصة. وإذا كان ملف إكسل، تأكد من وجود بيانات فيه.');
+      }
+
+      this.progressMessage = `تم استخراج ${validSheets.length} ورقة. جاري فتح صفحة التحليل...`;
       this.quizState.setExcelData(mergedData);
       const navigated = await this.router.navigate(['/analysis']);
       if (!navigated) {
