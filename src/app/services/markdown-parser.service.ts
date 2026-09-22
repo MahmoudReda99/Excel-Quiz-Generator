@@ -19,6 +19,9 @@ export class MarkdownParserService {
   normalizeInputText(text: string): string {
     if (!text) return '';
     let clean = text.replace(/\u0640/g, '');
+    // 0. Inline answer annotations (e.g. ] الإجابة الصحيحة [ or [الإجابة الصحيحة] or ] خيار صحيح [)
+    // Convert them to standard markdown checkbox task list marker [x]
+    clean = clean.replace(/[\[\]\(\)]?\s*(?:ة\s*حيحصلا\s*ة\s*باجلاإ|اإلجابة\s*الصحيحة|الإجابة\s*الصحيحة|خيار\s*(?:صحيح|معتمد)(?:\s*أيضًا\s*بالمرجع)?)\s*[\[\]\(\)]?/gi, ' [x] ');
 
     // 1. True / False reversed pairs (e.g. حص ) أ أطخ ) ب)
     clean = clean.replace(/حص\s*[\(\)]\s*([أA])\s*أطخ\s*[\(\)]\s*([بB])/gi, '\n($1) صح\n($2) خطأ\n');
@@ -30,9 +33,9 @@ export class MarkdownParserService {
     clean = clean.replace(/([\(\)]?\s*[أبجدa-h1-8]\s*[\(\)]?|حص\s*[\(\)]?\s*[أA]\s*[\(\)]?|أطخ\s*[\(\)]?\s*[بB]\s*[\(\)]?)\s*[:\s]*(?:ة\s*حيحصلا|الصحيحة|اإلجابة|الإجابة|الحل)\s*(?:ة\s*باجلاإ|باجلاإ|الإجابة|اإلجابة|الصحيحة)[:\s]*/gi, '\nالإجابة الصحيحة: $1\n');
     clean = clean.replace(/[:\s]*(?:ة\s*حيحصلا|الصحيحة|اإلجابة|الإجابة|الحل)\s*(?:ة\s*باجلاإ|باجلاإ|الإجابة|اإلجابة|الصحيحة)[:\s]*/gi, '\nالإجابة الصحيحة: ');
 
-    // 3. Question Header normalization (handles reversed 'الؤسلا' / 'لؤسملا' / 'السؤال')
-    const headerRegex = /(?:[:\s]+(\d+)\s*(?:الؤسلا|لؤسملا|لؤئسملا|السؤال|سؤال|س|Q|Question)|(?:الؤسلا|لؤسملا|لؤئسملا|السؤال|سؤال|س|Q|Question)\s*[:\s]*(\d+))/gi;
-    clean = clean.replace(headerRegex, (m, p1, p2) => '\n\n#### السؤال ' + (p1 || p2) + ' :\n');
+    // 3. Question Header normalization (handles reversed 'الؤسلا' / 'لؤسملا' / 'لاؤسلا' from single-line PDF extraction)
+    const reversedHeaderRegex = /(?:[:\s]+(\d+)\s*(?:الؤسلا|لؤسملا|لؤئسملا|لاؤسلا)|(?:الؤسلا|لؤسملا|لؤئسملا|لاؤسلا)\s*[:\s]*(\d+))/gi;
+    clean = clean.replace(reversedHeaderRegex, (m, p1, p2) => '\n\n#### السؤال ' + (p1 || p2) + ' :\n');
 
     return clean;
   }
@@ -60,29 +63,70 @@ export class MarkdownParserService {
 
     const isFooterOrExaminerText = (text: string): boolean => {
       const norm = text.toLowerCase().trim();
-      const footerKeywords = [
-        'إعداد', 'اعداد', 'إشراف', 'اشراف', 'رئيس اللجنة', 'اعضاء اللجنة', 'أعضاء اللجنة',
-        'توقيع', 'عضو اللجنة', 'الممتحن', 'المراجع', 'اللجنة الامتحانية', 'لجنة الاختبار',
+      const footerPrefixes = [
+        'إعداد:', 'اعداد:', 'إعداد /', 'اعداد /', 'إشراف:', 'اشراف:', 'إشراف /', 'اشراف /',
+        'رئيس اللجنة', 'اعضاء اللجنة', 'أعضاء اللجنة', 'عضو اللجنة',
+        'توقيع', 'الممتحن', 'اللجنة الامتحانية', 'لجنة الاختبار',
         'مع تمنياتنا', 'انتهت الأسئلة', 'انتهت الاسئلة', 'تم بحمد الله', 'النتيجة النهائية',
-        'ملاحظات', 'اسم المراجع', 'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'رئيس قاطع', 'مشرف الدور', 'قائد المركز',
+        'اسم المراجع', 'رئيس قاطع', 'مشرف الدور', 'قائد المركز',
         'examiner', 'signature', 'prepared by', 'approved by', 'committee'
       ];
-      if (footerKeywords.some(kw => norm.startsWith(kw) || (norm.length < 80 && norm.includes(kw)))) {
+      if (footerPrefixes.some(kw => norm.startsWith(kw))) {
+        return true;
+      }
+      const footerContains = [
+        'رئيس اللجنة', 'اعضاء اللجنة', 'أعضاء اللجنة', 'توقيع الممتحن',
+        'اللجنة الامتحانية', 'مع تمنياتنا بالنجاح', 'انتهت الأسئلة', 'انتهت الاسئلة', 'تم بحمد الله'
+      ];
+      if (norm.length < 80 && footerContains.some(kw => norm.includes(kw))) {
         return true;
       }
       const militaryRankRegex = /(?:^|\s)(?:عميد|عقيد|مقدم|رائد|نقيب|ملازم|لواء|فريق|مشير)(?:\s+أ\s*\.?\s*ح)?\s*[\/\s]/i;
-      return militaryRankRegex.test(norm);
+      return militaryRankRegex.test(norm) && norm.length < 80;
+    };
+
+    const extractRef = (text: string): { clean: string; exp: string | null } => {
+      if (!text.includes('المرجع') && !text.includes('بند') && !text.includes('صفحة') && !text.includes('مخطط')) {
+        return { clean: text, exp: null };
+      }
+      const m = text.match(/(?:[—–]\s*[\(\[]?|[\(\[])\s*([^\n\r]*(?:المرجع|ص\s*\d+|بند|صفحة|مخطط)[^\n\r]*)[\)\]]?\s*$/);
+      if (m && m.index !== undefined) {
+        const clean = text.slice(0, m.index).replace(/[—–\-\s]+$/, '').trim();
+        const exp = m[1].replace(/^[—–\-\(\)\[\]\s]+/, '').replace(/[\(\)\[\]\s]+$/, '').trim();
+        return { clean, exp };
+      }
+      return { clean: text, exp: null };
     };
 
     const extractChoicesFromLine = (line: string): Array<{ label: string; text: string }> | null => {
       if (!line || !line.trim()) return null;
       const cleanLine = line.trim();
 
-      // 1. Trailing labels: [Text] ) أ or [Text] (أ) (common in RTL visual PDF extraction)
-      const trailingMarkerRegex = /(?:^|[\s،\.\-])[\(\)]\s*([أبجدa-h1-8])(?:\s*[\(\)])?(?=\s+|$)/g;
+      // Normalize inline answer annotations (e.g. "- ] الإجابة الصحيحة [ )ج( اليدوية")
+      const normalizedLine = cleanLine.replace(/[\[\]\(\)]?\s*(?:اإلجابة الصحيحة|الإجابة الصحيحة|خيار صحيح|خيار معتمد)\s*[\[\]\(\)]?/g, ' ');
+
+      // 1. Single bullet choice line (standard markdown format: - **أ)** ... or * (أ) ...):
+      const bulletMatch = normalizedLine.match(/^(?:[\s\-\*•]+)(?:\[[ xX]\]\s*)?(?:\*\*|__|\*)?[\(\)\[\]]?\s*([A-Ha-hأ-ي1-8])\s*[\.\)\:\-\(\]][\)\(\]]?(?:\*\*|__|\*)?\s*(.+)$/);
+      if (bulletMatch) {
+        let choiceText = bulletMatch[2].trim();
+        choiceText = choiceText.replace(/^\*\*\)?\s*/, '').replace(/\*\*$/, '').replace(/[—\-\s]+$/, '').trim();
+
+        const refRes = extractRef(choiceText);
+        choiceText = refRes.clean;
+        if (refRes.exp) {
+          currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + refRes.exp;
+        }
+
+        if (choiceText === 'حص') choiceText = 'صح';
+        if (choiceText === 'أطخ') choiceText = 'خطأ';
+        if (choiceText) return [{ label: bulletMatch[1], text: choiceText }];
+      }
+
+      // 2. Trailing labels: [Text] ) أ or [Text] (أ) (common in RTL visual PDF extraction)
+      const trailingMarkerRegex = /(?:^|[\s،\.\-])[\(\)]\s*([أبجدa-hA-H])(?:\s*[\(\)])?(?=\s+|$)/g;
       const trailingMarkers: Array<{ label: string; startIndex: number; endIndex: number }> = [];
       let tMatch: RegExpExecArray | null;
-      while ((tMatch = trailingMarkerRegex.exec(cleanLine)) !== null) {
+      while ((tMatch = trailingMarkerRegex.exec(normalizedLine)) !== null) {
         trailingMarkers.push({
           label: tMatch[1],
           startIndex: tMatch.index,
@@ -95,8 +139,13 @@ export class MarkdownParserService {
         let lastEnd = 0;
         for (let i = 0; i < trailingMarkers.length; i++) {
           const m = trailingMarkers[i];
-          let choiceText = cleanLine.slice(lastEnd, m.startIndex).trim();
+          let choiceText = normalizedLine.slice(lastEnd, m.startIndex).trim();
           choiceText = choiceText.replace(/^\*\*\)?\s*/, '').replace(/\*\*$/, '').replace(/[—\-\s]+$/, '').trim();
+          const refRes = extractRef(choiceText);
+          choiceText = refRes.clean;
+          if (refRes.exp) {
+            currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + refRes.exp;
+          }
           if (choiceText === 'حص') choiceText = 'صح';
           if (choiceText === 'أطخ') choiceText = 'خطأ';
           if (choiceText) {
@@ -110,11 +159,11 @@ export class MarkdownParserService {
         if (choices.length > 0) return choices;
       }
 
-      // 2. Leading labels: (أ) [Text] or أ( [Text] or A. [Text]
-      const leadingPattern = /(?:^|\s+)(?:\[[ xX]\]\s*)?[\(\)]?([A-Ha-hأ-ي1-8])[\.\)\:\-\(][\(\)]?\s*/g;
+      // 3. Leading labels: (أ) [Text] or أ( [Text] or A. [Text]
+      const leadingPattern = /(?:^|[\s\-\*•]+)(?:\[[ xX]\]\s*)?(?:\*\*|__|\*)?[\(\)\[\]]?\s*([A-Ha-hأ-ي])\s*[\.\)\:\-\(\]][\)\(\]]?(?:\*\*|__|\*)?\s*/g;
       const leadingMarkers: Array<{ label: string; startIndex: number; matchLength: number }> = [];
       let lMatch: RegExpExecArray | null;
-      while ((lMatch = leadingPattern.exec(cleanLine)) !== null) {
+      while ((lMatch = leadingPattern.exec(normalizedLine)) !== null) {
         leadingMarkers.push({
           label: lMatch[1],
           startIndex: lMatch.index,
@@ -127,19 +176,14 @@ export class MarkdownParserService {
         for (let i = 0; i < leadingMarkers.length; i++) {
           const current = leadingMarkers[i];
           const textStart = current.startIndex + current.matchLength;
-          const textEnd = (i < leadingMarkers.length - 1) ? leadingMarkers[i + 1].startIndex : cleanLine.length;
-          let choiceText = cleanLine.slice(textStart, textEnd).trim();
+          const textEnd = (i < leadingMarkers.length - 1) ? leadingMarkers[i + 1].startIndex : normalizedLine.length;
+          let choiceText = normalizedLine.slice(textStart, textEnd).trim();
           choiceText = choiceText.replace(/^\*\*\)?\s*/, '').replace(/\*\*$/, '').replace(/[—\-\s]+$/, '').trim();
 
-          // Extract inline explanation if present
-          if (choiceText.includes('المرجع') || choiceText.includes('بند') || choiceText.includes('صفحة')) {
-            const expRegex = /[\(\[]\s*([^()\[\]]*(?:المرجع|ص\s*\d+|بند|صفحة)[^()\[\]]*)\s*[\)\]]?\s*$/;
-            const expMatch = choiceText.match(expRegex);
-            if (expMatch && expMatch.index !== undefined) {
-              const exp = expMatch[1].replace(/[\)\(\]\[]\s*$/, '').trim();
-              choiceText = choiceText.slice(0, expMatch.index).replace(/[—\-\s]+$/, '').trim();
-              currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + exp;
-            }
+          const refRes = extractRef(choiceText);
+          choiceText = refRes.clean;
+          if (refRes.exp) {
+            currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + refRes.exp;
           }
 
           if (choiceText === 'حص') choiceText = 'صح';
@@ -221,6 +265,27 @@ export class MarkdownParserService {
       return [cleanAns];
     };
 
+    const isSectionHeader = (text: string): boolean => {
+      const trimmed = text.trim();
+      if (!trimmed) return false;
+      const sectionKeywords = [
+        'النموذج', 'النماذج', 'امتحان', 'اختبار', 'مادة', 'جمهورية', 'دليل', 'التصحيح',
+        'تعليمات', 'الفصل', 'الباب', 'الوحدة', 'قسم', 'تاريخ', 'المعتمدة',
+        'model', 'exam', 'quiz', 'chapter', 'unit', 'instructions', 'guide'
+      ];
+      const norm = trimmed.toLowerCase().replace(/[*_#\[\]\(\)]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (sectionKeywords.some(kw => norm.startsWith(kw) || norm === kw)) {
+        return true;
+      }
+      if (/^#+\s+[^\d]+$/i.test(trimmed)) {
+        const afterHash = trimmed.replace(/^#+\s*/, '').trim();
+        if (!/^(?:السؤال|سؤال|س|Q|Question)/i.test(afterHash)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
     const saveCurrentQuestion = () => {
       let qTextClean = currentQText.trim();
 
@@ -230,7 +295,7 @@ export class MarkdownParserService {
       }
       if (!qTextClean) return;
 
-      // Ignore intro/footer text that has no header AND no explicit choices
+      // Ignore intro/footer/section text that has no header AND no explicit choices
       if (!hasCurrentHeader && currentChoices.length === 0) {
         currentQText = '';
         return;
@@ -242,8 +307,6 @@ export class MarkdownParserService {
       const stripped = qTextClean.replace(/^(?:#+\s*)*(?:السؤال|سؤال|س|Q|Question)\s*\d+[\s:\.\-]*\s*/i, '').trim();
       if (stripped) {
         qTextClean = stripped;
-      } else if (!qTextClean && currentChoices.length > 0) {
-        qTextClean = currentHeaderTitle || `السؤال ${questions.length + 1}`;
       }
 
       if (qTextClean && !isFooterOrExaminerText(qTextClean)) {
@@ -278,6 +341,8 @@ export class MarkdownParserService {
       currentChoices = [];
       currentCorrectAnswers = [];
       currentExplanation = null;
+      hasCurrentHeader = false;
+      currentHeaderTitle = '';
     };
 
     for (let i = 0; i < lines.length; i++) {
@@ -286,14 +351,20 @@ export class MarkdownParserService {
 
       if (line.startsWith('<!--') && line.endsWith('-->')) continue;
 
+      if (isSectionHeader(line)) {
+        saveCurrentQuestion();
+        hasCurrentHeader = false;
+        currentQText = '';
+        continue;
+      }
+
       const cleanLine = line.replace(/[*_]/g, ' ').replace(/\s+/g, ' ').trim();
 
-      // Check for Question Header: #### السؤال 1 , 1. , س1: , Q1: , السؤال 1:
+      // Check for Question Header: #### السؤال 1 , 1. , س1: , Q1: , السؤال 1: , #### س 1
       const qHeaderMatch = line.match(/^(?:#+\s*|\d+[\.\-\)]\s*|(?:السؤال|سؤال|س|Q|Question)\s*\d+[\s:\.\-]*)(.*)$/i);
       const isHeader = !!qHeaderMatch && (
-        line.startsWith('#') || 
-        /^(?:السؤال|سؤال|س|Q|Question)\s*\d+/i.test(line) ||
-        /^\d+[\.\-\)]/i.test(line)
+        /^(?:#+\s*)?(?:السؤال|سؤال|س|Q|Question)\s*\d+/i.test(line) ||
+        /^\d+[\.\-\)]\s+/i.test(line)
       );
       
       // Check for Answer key line: **الإجابة:** A or Answer: A,C or الإجابة الصحيحة: أ( رئيس الأركان
@@ -303,13 +374,13 @@ export class MarkdownParserService {
       const expMatch = cleanLine.match(/^(?:>\s*|(?:Explanation|الشرح|التفسير)[:\s]+)(.+)$/i);
 
       // Check for Choices line (can contain multiple choices on the same line)
-      const extractedChoices = !answerKeyMatch ? extractChoicesFromLine(line) : null;
+      const extractedChoices = (!isHeader && !answerKeyMatch && !expMatch) ? extractChoicesFromLine(line) : null;
 
       if (isHeader) {
         saveCurrentQuestion();
         hasCurrentHeader = true;
         currentHeaderTitle = qHeaderMatch ? qHeaderMatch[0].replace(/^#+\s*/, '').trim() : '';
-        currentQText = qHeaderMatch ? qHeaderMatch[1].trim() : cleanLine.replace(/^#+\s*/, '').trim();
+        currentQText = qHeaderMatch ? qHeaderMatch[1].trim() : '';
         currentChoices = [];
         currentCorrectAnswers = [];
         currentExplanation = null;
@@ -335,7 +406,7 @@ export class MarkdownParserService {
             });
           }
 
-          if (line.includes('[x]') || line.includes('[X]')) {
+          if (line.includes('[x]') || line.includes('[X]') || line.includes('اإلجابة الصحيحة') || line.includes('الإجابة الصحيحة') || line.includes('خيار صحيح') || line.includes('خيار معتمد')) {
             if (!currentCorrectAnswers.includes(choiceId)) {
               currentCorrectAnswers.push(choiceId);
             }
@@ -352,13 +423,10 @@ export class MarkdownParserService {
               let lastChoice = currentChoices[currentChoices.length - 1];
               lastChoice.text += ' ' + cleanContent;
               
-              if (lastChoice.text.includes('المرجع') || lastChoice.text.includes('بند') || lastChoice.text.includes('صفحة')) {
-                const expRegex = /[\(\[]\s*([^()\[\]]*(?:المرجع|ص\s*\d+|بند|صفحة)[^()\[\]]*)\s*[\)\]]?\s*$/;
-                const expMatch = lastChoice.text.match(expRegex);
-                if (expMatch && expMatch.index !== undefined) {
-                  currentExplanation = expMatch[1].replace(/[\)\(\]\[]\s*$/, '').trim();
-                  lastChoice.text = lastChoice.text.slice(0, expMatch.index).replace(/[—\-\s]+$/, '').trim();
-                }
+              const refRes = extractRef(lastChoice.text);
+              if (refRes.exp) {
+                currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + refRes.exp;
+                lastChoice.text = refRes.clean;
               }
             }
           } else {
