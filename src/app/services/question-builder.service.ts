@@ -59,17 +59,8 @@ export class QuestionBuilderService {
 
       const normalizedAnswer = this.normalizer.normalizeAnswer(rawAnswer, choices);
 
-      // Determine type: 'multiple' if answer contains multiple selections (e.g. A;C, A,B) or type column indicates multi-answers
+      // 1. Initial type based on type column if mapped
       let type: 'single' | 'multiple' = 'single';
-      if (Array.isArray(normalizedAnswer) && normalizedAnswer.length > 1) {
-        type = 'multiple';
-      } else if (rawAnswer !== null && rawAnswer !== undefined) {
-        const rawStr = String(rawAnswer).trim();
-        const parts = rawStr.split(/[,;\s\u060C]+/).filter(p => p.trim().length > 0);
-        if (parts.length > 1) {
-          type = 'multiple';
-        }
-      }
 
       if (mapping.typeCol !== null && row[mapping.typeCol] !== undefined && row[mapping.typeCol] !== null) {
         const typeStr = String(row[mapping.typeCol] || '').toLowerCase().trim();
@@ -91,11 +82,43 @@ export class QuestionBuilderService {
         }
       }
 
+      // 2. SPECIAL OVERRIDE:
+      // If the answer itself contains multiple selections (e.g. "A/B", "A,B", "أ و ب", or normalizedAnswer has length > 1),
+      // it MUST ALWAYS be treated as 'multiple' answer, even if the row's type column says "اختيار من متعدد" or "multiple choice".
+      const isMultiAnswerContent = (Array.isArray(normalizedAnswer) && normalizedAnswer.length > 1) ||
+        (() => {
+          if (rawAnswer === null || rawAnswer === undefined) return false;
+          const rawStr = String(rawAnswer).trim();
+          if (/[,;\u060C\u061B\/\+&]|\s+و\s+/.test(rawStr)) return true;
+          const spaceParts = rawStr.split(/\s+/).filter(Boolean);
+          return spaceParts.length > 1 && spaceParts.every(p => /^[A-Ha-h1-8]$/.test(p) || /^[أ-ي]$/.test(p));
+        })();
+
+      if (isMultiAnswerContent) {
+        type = 'multiple';
+      }
+
+      // Ensure correctAnswer matches question type format
+      let finalCorrectAnswer: string | string[] = normalizedAnswer;
+      if (type === 'multiple') {
+        if (Array.isArray(normalizedAnswer)) {
+          finalCorrectAnswer = normalizedAnswer;
+        } else if (normalizedAnswer) {
+          finalCorrectAnswer = [normalizedAnswer];
+        } else {
+          finalCorrectAnswer = [];
+        }
+      } else {
+        if (Array.isArray(normalizedAnswer)) {
+          finalCorrectAnswer = normalizedAnswer[0] || '';
+        }
+      }
+
       questions.push({
         id: `q_${rowIndex}`,
         text: String(qText).trim(),
         choices,
-        correctAnswer: normalizedAnswer,
+        correctAnswer: finalCorrectAnswer,
         type,
         explanation: explanation ? String(explanation).trim() : null,
         difficulty: (difficulty !== null && !isNaN(difficulty)) ? difficulty : null,

@@ -132,11 +132,15 @@ export class QuizStateService {
     this.quizState$.next(newState);
   }
 
-  answerQuestion(questionIndex: number, answer: string | string[]): void {
+  answerQuestion(questionIndex: number, answer: string | string[], isSubmitted?: boolean): void {
     const state = this.quizState$.value;
     const questions = [...state.questions];
     if (questionIndex >= 0 && questionIndex < questions.length) {
-      questions[questionIndex] = { ...questions[questionIndex], userAnswer: answer };
+      const updatedQ = { ...questions[questionIndex], userAnswer: answer };
+      if (typeof isSubmitted === 'boolean') {
+        updatedQ.isSubmitted = isSubmitted;
+      }
+      questions[questionIndex] = updatedQ;
       this.quizState$.next({ ...state, questions });
     }
   }
@@ -166,8 +170,14 @@ export class QuizStateService {
     const state = this.quizState$.value;
     const endTime = new Date();
     const startTime = state.startTime || endTime;
-    const result = this.scorerService.calculateResult(state.questions, startTime, endTime);
-    this.quizState$.next({ ...state, status: 'submitted', result });
+    const finalizedQuestions = state.questions.map(q => {
+      if (q.type === 'multiple' && Array.isArray(q.userAnswer) && q.userAnswer.length > 0) {
+        return { ...q, isSubmitted: true };
+      }
+      return q;
+    });
+    const result = this.scorerService.calculateResult(finalizedQuestions, startTime, endTime);
+    this.quizState$.next({ ...state, questions: finalizedQuestions, status: 'submitted', result });
   }
 
   retryQuiz(): void {

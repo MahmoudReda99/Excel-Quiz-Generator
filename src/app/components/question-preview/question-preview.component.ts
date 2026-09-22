@@ -46,9 +46,17 @@ export class QuestionPreviewComponent {
 
   isChoiceCorrect(question: QuizQuestion, choiceId: string): boolean {
     if (!question.correctAnswer) return false;
+    const cleanId = String(choiceId).trim().toUpperCase();
+    const choice = question.choices?.find(c => c.id === choiceId);
+    const cleanLabel = choice?.label ? String(choice.label).trim().toUpperCase() : null;
+
     if (Array.isArray(question.correctAnswer)) {
-      return question.correctAnswer.includes(choiceId);
+      return question.correctAnswer.some(c => {
+        const norm = String(c).trim().toUpperCase();
+        return norm === cleanId || (cleanLabel !== null && norm === cleanLabel);
+      });
     }
-    return question.correctAnswer === choiceId;
+    const normCorrect = String(question.correctAnswer).trim().toUpperCase();
+    return normCorrect === cleanId || (cleanLabel !== null && normCorrect === cleanLabel);
   }
 }

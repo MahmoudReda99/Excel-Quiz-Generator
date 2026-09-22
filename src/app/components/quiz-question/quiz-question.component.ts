@@ -161,11 +161,19 @@ export class QuizQuestionComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['question'] && this.question) {
       if (this.question.type === 'multiple') {
-        this.selectedChoiceIds = Array.isArray(this.question.userAnswer) ? [...this.question.userAnswer] : [];
+        if (Array.isArray(this.question.userAnswer)) {
+          this.selectedChoiceIds = [...this.question.userAnswer];
+        } else if (this.question.userAnswer) {
+          this.selectedChoiceIds = [String(this.question.userAnswer)];
+        } else {
+          this.selectedChoiceIds = [];
+        }
         this.selectedChoiceId = null;
         this.isMultiSubmitted = !!this.question.isSubmitted;
       } else {
-        this.selectedChoiceId = typeof this.question.userAnswer === 'string' ? this.question.userAnswer : null;
+        this.selectedChoiceId = typeof this.question.userAnswer === 'string' 
+          ? this.question.userAnswer 
+          : (Array.isArray(this.question.userAnswer) && this.question.userAnswer.length > 0 ? this.question.userAnswer[0] : null);
         this.selectedChoiceIds = [];
         this.isMultiSubmitted = false;
       }
@@ -177,18 +185,27 @@ export class QuizQuestionComponent implements OnChanges {
   }
 
   isChoiceSelected(id: string): boolean {
+    const cleanId = String(id).trim().toUpperCase();
     if (this.question.type === 'multiple') {
-      return this.selectedChoiceIds.includes(id);
+      return this.selectedChoiceIds.some(s => String(s).trim().toUpperCase() === cleanId);
     }
-    return this.selectedChoiceId === id;
+    return String(this.selectedChoiceId || '').trim().toUpperCase() === cleanId;
   }
 
   isChoiceCorrect(choiceId: string): boolean {
     if (!this.question.correctAnswer) return false;
+    const cleanId = String(choiceId).trim().toUpperCase();
+    const choice = this.question.choices?.find(c => c.id === choiceId);
+    const cleanLabel = choice?.label ? String(choice.label).trim().toUpperCase() : null;
+
     if (Array.isArray(this.question.correctAnswer)) {
-      return this.question.correctAnswer.includes(choiceId);
+      return this.question.correctAnswer.some(c => {
+        const norm = String(c).trim().toUpperCase();
+        return norm === cleanId || (cleanLabel !== null && norm === cleanLabel);
+      });
     }
-    return this.question.correctAnswer === choiceId;
+    const normCorrect = String(this.question.correctAnswer).trim().toUpperCase();
+    return normCorrect === cleanId || (cleanLabel !== null && normCorrect === cleanLabel);
   }
 
   get shouldShowAnswerDetails(): boolean {
@@ -227,9 +244,14 @@ export class QuizQuestionComponent implements OnChanges {
       } else {
         this.selectedChoiceIds.push(id);
       }
+      this.isMultiSubmitted = false;
+      this.question.isSubmitted = false;
+      this.question.userAnswer = [...this.selectedChoiceIds];
       this.answerChanged.emit([...this.selectedChoiceIds]);
     } else {
       this.selectedChoiceId = id;
+      this.question.isSubmitted = true;
+      this.question.userAnswer = id;
       this.answerChanged.emit(id);
     }
   }
@@ -238,6 +260,7 @@ export class QuizQuestionComponent implements OnChanges {
     if (this.selectedChoiceIds.length === 0 || this.isAnswerLocked) return;
     this.isMultiSubmitted = true;
     this.question.isSubmitted = true;
+    this.question.userAnswer = [...this.selectedChoiceIds];
     this.answerChanged.emit([...this.selectedChoiceIds]);
   }
 }

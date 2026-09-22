@@ -99,19 +99,33 @@ export class QuestionNavigatorComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {}
 
-  isAnswered(q: QuizQuestion): boolean {
+  isSubmitted(q: QuizQuestion): boolean {
+    if (q.type === 'multiple') {
+      return !!q.isSubmitted;
+    }
     return q.userAnswer !== null && 
            q.userAnswer !== undefined && 
            !(Array.isArray(q.userAnswer) && q.userAnswer.length === 0);
   }
 
+  isAnswered(q: QuizQuestion): boolean {
+    return this.isSubmitted(q);
+  }
+
+  hasPendingSelections(q: QuizQuestion): boolean {
+    return q.type === 'multiple' && 
+           !q.isSubmitted && 
+           Array.isArray(q.userAnswer) && 
+           q.userAnswer.length > 0;
+  }
+
   isCorrect(q: QuizQuestion): boolean {
-    if (!this.isAnswered(q)) return false;
+    if (!this.isSubmitted(q)) return false;
     return this.normalizer.isCorrect(q.userAnswer, q.correctAnswer, q.type);
   }
 
   isWrong(q: QuizQuestion): boolean {
-    if (!this.isAnswered(q)) return false;
+    if (!this.isSubmitted(q)) return false;
     return !this.isCorrect(q);
   }
 
@@ -124,14 +138,14 @@ export class QuestionNavigatorComponent implements OnChanges {
   }
 
   get unansweredCount(): number {
-    return this.questions.filter(q => !this.isAnswered(q)).length;
+    return this.questions.filter(q => !this.isSubmitted(q)).length;
   }
 
   shouldShowQuestion(index: number, q: QuizQuestion): boolean {
     if (this.activeFilter === 'all') return true;
     if (this.activeFilter === 'correct') return this.isCorrect(q);
     if (this.activeFilter === 'wrong') return this.isWrong(q);
-    if (this.activeFilter === 'unanswered') return !this.isAnswered(q);
+    if (this.activeFilter === 'unanswered') return !this.isSubmitted(q);
     return true;
   }
 
@@ -139,6 +153,7 @@ export class QuestionNavigatorComponent implements OnChanges {
     const isCurrent = this.currentIndex === index;
     const isCorr = this.isCorrect(q);
     const isWr = this.isWrong(q);
+    const isPending = this.hasPendingSelections(q);
 
     const base = 'h-10 rounded-xl font-extrabold text-sm flex items-center justify-center transition-all duration-150 relative select-none cursor-pointer ';
 
@@ -158,6 +173,9 @@ export class QuestionNavigatorComponent implements OnChanges {
     }
     if (isWr) {
       return base + 'bg-rose-600 text-white hover:bg-rose-700';
+    }
+    if (isPending) {
+      return base + 'bg-primary-100 text-primary-800 border-2 border-primary-300 hover:bg-primary-200';
     }
 
     return base + 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-100 hover:text-gray-900';

@@ -96,18 +96,34 @@ export class ReviewAnswerComponent {
 
   isUserSelected(choiceId: string): boolean {
     if (!this.question.userAnswer) return false;
+    const cleanId = String(choiceId).trim().toUpperCase();
+    const choice = this.question.choices?.find(c => c.id === choiceId);
+    const cleanLabel = choice?.label ? String(choice.label).trim().toUpperCase() : null;
+
     if (Array.isArray(this.question.userAnswer)) {
-      return this.question.userAnswer.includes(choiceId);
+      return this.question.userAnswer.some(u => {
+        const norm = String(u).trim().toUpperCase();
+        return norm === cleanId || (cleanLabel !== null && norm === cleanLabel);
+      });
     }
-    return this.question.userAnswer === choiceId;
+    const normUser = String(this.question.userAnswer).trim().toUpperCase();
+    return normUser === cleanId || (cleanLabel !== null && normUser === cleanLabel);
   }
 
   isChoiceCorrect(choiceId: string): boolean {
     if (!this.question.correctAnswer) return false;
+    const cleanId = String(choiceId).trim().toUpperCase();
+    const choice = this.question.choices?.find(c => c.id === choiceId);
+    const cleanLabel = choice?.label ? String(choice.label).trim().toUpperCase() : null;
+
     if (Array.isArray(this.question.correctAnswer)) {
-      return this.question.correctAnswer.includes(choiceId);
+      return this.question.correctAnswer.some(c => {
+        const norm = String(c).trim().toUpperCase();
+        return norm === cleanId || (cleanLabel !== null && norm === cleanLabel);
+      });
     }
-    return this.question.correctAnswer === choiceId;
+    const normCorrect = String(this.question.correctAnswer).trim().toUpperCase();
+    return normCorrect === cleanId || (cleanLabel !== null && normCorrect === cleanLabel);
   }
 
   get isUnanswered(): boolean {

@@ -53,7 +53,9 @@ export class MarkdownParserService {
 
     const arabicChoiceMap: { [key: string]: string } = {
       'أ': 'A', 'ا': 'A', 'ب': 'B', 'ج': 'C', 'د': 'D',
-      'هـ': 'E', 'ه': 'E', 'و': 'F', 'ز': 'G', 'ح': 'H'
+      'هـ': 'E', 'ه': 'E', 'و': 'F', 'ز': 'G', 'ح': 'H',
+      '1': 'A', '2': 'B', '3': 'C', '4': 'D', '5': 'E', '6': 'F', '7': 'G', '8': 'H',
+      '١': 'A', '٢': 'B', '٣': 'C', '٤': 'D', '٥': 'E', '٦': 'F', '٧': 'G', '٨': 'H'
     };
 
     const isFooterOrExaminerText = (text: string): boolean => {
@@ -157,6 +159,58 @@ export class MarkdownParserService {
       if (/^(?:صح|صحيح|ص|حص|true|yes|نعم)$/i.test(cleanAns)) return ['A'];
       if (/^(?:خطأ|خاطئ|خ|أطخ|false|no|لا)$/i.test(cleanAns)) return ['B'];
 
+      // 1. Check if rawAns is a single answer with label at start and option text following it:
+      // E.g. "د( 2 ك مش ميكا + 1 ك بب" or "ب( 8 قطعة" or "أ) رئيس الأركان"
+      const singleOptionWithTextMatch = cleanAns.match(/^[\(\)]?\s*([A-Ha-hأ-ي1-8])[\.\)\:\-\(][\(\)]?\s+(.+)$/);
+      if (singleOptionWithTextMatch) {
+        const trailingText = singleOptionWithTextMatch[2].trim();
+        const hasMoreMarkers = /(?:^|[,;\s\u060C\u061B\/\+&]+)[\(\)]?\s*([A-Ha-hأ-ي1-8])[\.\)\:\-\(][\(\)]?(?=\s+|$)/.test(trailingText) ||
+                               /(?:^|[,;\s\u060C\u061B]+)\s*([A-Ha-hأ-ي1-8])(?=\s*[,;\s\u060C\u061B]|$)/.test(trailingText);
+        if (!hasMoreMarkers) {
+          let label = singleOptionWithTextMatch[1].toUpperCase();
+          if (arabicChoiceMap[label]) label = arabicChoiceMap[label];
+          if (/^[A-H]$/.test(label)) return [label];
+        }
+      }
+
+      // 2. Multi-answer detection:
+      // Delimiters: comma, Arabic comma, semicolon, Arabic semicolon, slash, plus, '&', or ' و '
+      const normalizedDelimiterStr = cleanAns
+        .replace(/\s+و\s+/g, ',')
+        .replace(/[,;\u060C\u061B\/\+&]+/g, ',');
+
+      const parts = normalizedDelimiterStr.split(',').map(p => p.trim()).filter(Boolean);
+      const answers: string[] = [];
+
+      for (const part of parts) {
+        const subParts = part.split(/\s+/).filter(Boolean);
+        for (const sub of subParts) {
+          let cleanP = sub.replace(/[\(\)\[\]\.\:\-]/g, '').trim().toUpperCase();
+          if (arabicChoiceMap[cleanP]) {
+            cleanP = arabicChoiceMap[cleanP];
+          }
+          if (/^[A-H]$/.test(cleanP)) {
+            if (!answers.includes(cleanP)) {
+              answers.push(cleanP);
+            }
+          } else {
+            const match = sub.match(/^[\(\)]?\s*([A-Ha-hأ-ي1-8])[\.\)\:\-\(]?$/);
+            if (match) {
+              let label = match[1].toUpperCase();
+              if (arabicChoiceMap[label]) label = arabicChoiceMap[label];
+              if (/^[A-H]$/.test(label) && !answers.includes(label)) {
+                answers.push(label);
+              }
+            }
+          }
+        }
+      }
+
+      if (answers.length > 0) {
+        return answers;
+      }
+
+      // Fallback: single letter anywhere
       const letterMatch = cleanAns.match(/[\(\)]?\s*([A-Ha-hأ-ي1-8])\s*[\.\)\:\-\(]?/);
       if (letterMatch) {
         let label = letterMatch[1].toUpperCase();
@@ -164,15 +218,7 @@ export class MarkdownParserService {
         if (/^[A-H]$/.test(label)) return [label];
       }
 
-      const answers: string[] = [];
-      const parts = cleanAns.split(/[,;\s\u060C]+/);
-      parts.forEach(p => {
-        let cleanP = p.replace(/[\(\)\[\]]/g, '').trim().toUpperCase();
-        if (arabicChoiceMap[cleanP]) cleanP = arabicChoiceMap[cleanP];
-        if (/^[A-H]$/.test(cleanP)) answers.push(cleanP);
-      });
-
-      return answers.length > 0 ? answers : [rawAns];
+      return [cleanAns];
     };
 
     const saveCurrentQuestion = () => {

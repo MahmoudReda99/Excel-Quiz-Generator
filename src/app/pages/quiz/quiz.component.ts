@@ -155,20 +155,27 @@ export class QuizPageComponent implements OnInit, OnDestroy {
     if (this.currentQuestion?.type === 'single') {
       return !!this.currentQuestion?.userAnswer;
     }
-    return false;
+    return !!this.currentQuestion?.isSubmitted;
+  }
+
+  get isExamMode(): boolean {
+    return this.quizState?.config?.mode === 'exam';
   }
 
   get answeredCount(): number {
     if (!this.quizState || !this.quizState.questions) return 0;
-    return this.quizState.questions.filter((q: any) => 
-      q.userAnswer !== null && 
-      q.userAnswer !== undefined && 
-      !(Array.isArray(q.userAnswer) && q.userAnswer.length === 0)
-    ).length;
+    return this.quizState.questions.filter((q: any) => {
+      if (q.type === 'multiple') {
+        return !!q.isSubmitted;
+      }
+      return q.userAnswer !== null && 
+             q.userAnswer !== undefined && 
+             !(Array.isArray(q.userAnswer) && q.userAnswer.length === 0);
+    }).length;
   }
 
   onAnswer(answer: string | string[]) {
-    this.quizStateService.answerQuestion(this.currentIndex, answer);
+    this.quizStateService.answerQuestion(this.currentIndex, answer, this.currentQuestion?.isSubmitted);
   }
 
   nextQuestion() {

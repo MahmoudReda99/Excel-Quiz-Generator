@@ -96,7 +96,7 @@ export class QuizSettingsComponent {
   @Input() totalQuestions: number = 0;
   @Output() startQuiz = new EventEmitter<QuizConfig>();
 
-  mode: 'practice' | 'exam' = 'exam';
+  mode: 'practice' | 'exam' = 'practice';
   randomizeQuestions: boolean = false;
   randomizeAnswers: boolean = false;
   questionCount: number | 'all' | 'custom' = 'all';

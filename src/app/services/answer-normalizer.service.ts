@@ -5,27 +5,68 @@ import { QuizChoice } from '../models/quiz.model';
   providedIn: 'root'
 })
 export class AnswerNormalizerService {
+  private arabicLetterMap: Record<string, string> = {
+    'أ': 'A', 'ا': 'A', 'ب': 'B', 'ج': 'C', 'د': 'D',
+    'هـ': 'E', 'ه': 'E', 'و': 'F', 'ز': 'G', 'ح': 'H',
+    '1': 'A', '2': 'B', '3': 'C', '4': 'D', '5': 'E', '6': 'F', '7': 'G', '8': 'H',
+    '١': 'A', '٢': 'B', '٣': 'C', '٤': 'D', '٥': 'E', '٦': 'F', '٧': 'G', '٨': 'H'
+  };
+
   normalizeAnswer(rawAnswer: any, choices: QuizChoice[]): string | string[] {
     if (rawAnswer === null || rawAnswer === undefined) return '';
-    
+
+    if (Array.isArray(rawAnswer)) {
+      const mapped = rawAnswer.map(a => this.matchSingleAnswer(a, choices)).filter(Boolean);
+      return mapped.length > 1 ? mapped : (mapped[0] || '');
+    }
+
     const strAnswer = String(rawAnswer).trim();
     if (!strAnswer) return '';
-    
-    if (strAnswer.includes(',')) {
-      return strAnswer.split(',').map(a => this.matchSingleAnswer(a.trim(), choices)).filter(Boolean);
+
+    // If single answer is Choice 'و' (Choice F in Arabic), don't treat it as conjunction 'و'!
+    if (strAnswer === 'و') {
+      return this.matchSingleAnswer(strAnswer, choices);
     }
-    
-    if (strAnswer.includes(';') || strAnswer.includes('و')) {
-      const sep = strAnswer.includes(';') ? ';' : 'و';
-      return strAnswer.split(sep).map(a => this.matchSingleAnswer(a.trim(), choices)).filter(Boolean);
+
+    // Check if string contains multi-answer delimiters: comma, Arabic comma, semicolon, Arabic semicolon, slash, plus, '&', or ' و '
+    const hasDelimiter = /[,;\u060C\u061B\/\+&]|\s+و\s+/.test(strAnswer);
+
+    if (hasDelimiter) {
+      const normalized = strAnswer
+        .replace(/\s+و\s+/g, ',')
+        .replace(/[,;\u060C\u061B\/\+&]+/g, ',');
+
+      const parts = normalized.split(',').map(p => p.trim()).filter(Boolean);
+      const mapped = parts.map(p => this.matchSingleAnswer(p, choices)).filter(Boolean);
+      if (mapped.length > 1) {
+        return mapped;
+      }
+      if (mapped.length === 1) {
+        return mapped[0];
+      }
+    }
+
+    // Check if string contains multiple space-separated letters (e.g. "A B" or "أ ب" or "A C D")
+    const spaceParts = strAnswer.split(/\s+/).filter(Boolean);
+    if (spaceParts.length > 1) {
+      const allAreLabels = spaceParts.every(p => /^[A-Ha-h1-8]$/.test(p) || !!this.arabicLetterMap[p]);
+      if (allAreLabels) {
+        const mapped = spaceParts.map(p => this.matchSingleAnswer(p, choices)).filter(Boolean);
+        if (mapped.length > 1) {
+          return mapped;
+        }
+      }
     }
 
     return this.matchSingleAnswer(strAnswer, choices);
   }
 
   private matchSingleAnswer(answer: string, choices: QuizChoice[]): string {
-    const str = String(answer).trim();
+    let str = String(answer).trim();
     if (!str) return '';
+
+    // Strip wrapping parentheses, brackets, colons, or periods (e.g. "(A)", "[ب]", "أ.")
+    str = str.replace(/^[\(\[\{]/, '').replace(/[\)\]\}\.\:\-]$/, '').trim();
 
     // True/False mappings:
     const lower = str.toLowerCase();
@@ -43,12 +84,12 @@ export class AnswerNormalizerService {
       return str.toUpperCase();
     }
 
-    // Arabic letter mapping: أ / ا -> A, ب -> B, ج -> C, د -> D, هـ / ه -> E
-    const arabicLetterMap: Record<string, string> = {
-      'أ': 'A', 'ا': 'A', 'ب': 'B', 'ج': 'C', 'د': 'D', 'هـ': 'E', 'ه': 'E', 'و': 'F', 'ز': 'G', 'ح': 'H'
-    };
-    if (arabicLetterMap[str]) {
-      return arabicLetterMap[str];
+    // Arabic letter & numeral mapping
+    if (this.arabicLetterMap[str]) {
+      const mappedLetter = this.arabicLetterMap[str];
+      const matched = choices.find(c => c.label === mappedLetter || c.id === mappedLetter);
+      if (matched) return matched.id;
+      return mappedLetter;
     }
 
     // Number 1-8 (e.g. 1 -> A, 2 -> B, 3 -> C, 4 -> D)
@@ -68,7 +109,7 @@ export class AnswerNormalizerService {
       if (/^[a-h]$/i.test(val)) return val.toUpperCase();
       const n = parseInt(val, 10);
       if (!isNaN(n) && choices[n - 1]) return choices[n - 1].id;
-      if (arabicLetterMap[val]) return arabicLetterMap[val];
+      if (this.arabicLetterMap[val]) return this.arabicLetterMap[val];
     }
 
     // Try matching exact choice text (case-insensitive)
