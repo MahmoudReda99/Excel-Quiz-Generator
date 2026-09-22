@@ -21,6 +21,7 @@ export interface SheetInfo {
   rowCount: number;
   colCount: number;
   fileName?: string;
+  isLookup?: boolean;
 }
 
 export interface ColumnMapping {

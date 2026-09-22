@@ -18,6 +18,33 @@ export class ExcelParserService {
     return this.readWorkbookBuffer(file.name, file.size, buffer);
   }
 
+  isLookupSheet(sheetName: string, headers: string[] = [], rowCount: number = 0): boolean {
+    const cleanName = sheetName.replace(/^.*?->\s*/, '').toLowerCase().trim();
+    const lookupKeywords = [
+      'lookups', 'lookup', 'لوكب', 'قوائم', 'انواع الاسئلة', 'أنواع الأسئلة', 'الأنواع',
+      'مستويات الصعوبة', 'بيانات مرجعية', 'تعليمات', 'instructions', 'instruction',
+      'data validation', 'validation', 'dropdowns', 'dropdown', 'metadata', 'settings',
+      'config', 'legend', 'مفاتيح', 'نماذج الإجابة', 'نماذج الاجابة'
+    ];
+    
+    if (lookupKeywords.some(kw => cleanName === kw || cleanName.includes(kw))) {
+      return true;
+    }
+
+    // Check if headers are lookup-only headers without question column
+    const headerStr = headers.map(h => String(h || '').toLowerCase().trim()).join(' ');
+    const hasLookupHeaders = ['أنواع الأسئلة', 'انواع الاسئلة', 'مستويات الصعوبة', 'نماذج الإجابة', 'نماذج الاجابة', 'question types', 'difficulty levels']
+      .some(kw => headerStr.includes(kw));
+    const hasRealQuestionHeader = ['نص السؤال', 'السؤال', 'question', 'q_text', 'question text', 'stem']
+      .some(kw => headerStr.includes(kw));
+
+    if (hasLookupHeaders && !hasRealQuestionHeader) {
+      return true;
+    }
+
+    return false;
+  }
+
   readWorkbookBuffer(fileName: string, fileSize: number, buffer: ArrayBuffer): ExcelData {
     const data = new Uint8Array(buffer);
     const workbook = XLSX.read(data, { type: 'array' });
@@ -25,15 +52,19 @@ export class ExcelParserService {
     const sheets: SheetInfo[] = workbook.SheetNames.map((sheetName, index) => {
       const sheetData = this.getSheetData(workbook, index);
       sheetData.fileName = fileName;
+      sheetData.isLookup = this.isLookupSheet(sheetName, sheetData.headers, sheetData.rowCount);
       return sheetData;
     });
+
+    const questionSheets = sheets.filter(s => !s.isLookup && s.rowCount > 0);
+    const validSheets = questionSheets.length > 0 ? questionSheets : sheets.filter(s => s.rowCount > 0);
 
     return {
       fileName,
       fileSize,
-      sheets,
+      sheets: validSheets,
       selectedSheet: 0,
-      files: [{ fileName, fileSize, sheetCount: sheets.filter(s => s.rowCount > 0).length }],
+      files: [{ fileName, fileSize, sheetCount: validSheets.length }],
       isMultiFile: false
     };
   }
@@ -96,7 +127,7 @@ export class ExcelParserService {
 
     parsedList.forEach((parsed) => {
       totalSize += parsed.fileSize;
-      const validSheets = parsed.sheets.filter(s => s.rowCount > 0);
+      const validSheets = parsed.sheets.filter(s => !s.isLookup && s.rowCount > 0);
       filesInfo.push({
         fileName: parsed.fileName,
         fileSize: parsed.fileSize,

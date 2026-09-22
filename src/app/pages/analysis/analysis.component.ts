@@ -156,7 +156,10 @@ export class AnalysisComponent implements OnInit {
       return;
     }
     this.excelData = data;
-    this.dataSheets = data.sheets.filter(s => s.rowCount > 0);
+    this.dataSheets = data.sheets.filter(s => s.rowCount > 0 && !s.isLookup);
+    if (this.dataSheets.length === 0) {
+      this.dataSheets = data.sheets.filter(s => s.rowCount > 0);
+    }
     if (this.dataSheets.length > 0) {
       this.selectedSheetIndex = (this.dataSheets.length > 1 || data.isMultiFile) ? -1 : 0;
       this.loadSheetData();
@@ -186,14 +189,16 @@ export class AnalysisComponent implements OnInit {
     let combinedQuestions: QuizQuestion[] = [];
     this.confidence = 'high';
     
+    const validQuestionSheets = this.dataSheets.filter(s => !s.isLookup);
+
     // First sheet header for display
-    this.currentSheet = this.dataSheets[0];
+    this.currentSheet = validQuestionSheets[0] || this.dataSheets[0];
     if (this.currentSheet) {
       const result = this.detector.detect(this.currentSheet);
       this.mapping = result.mapping;
     }
 
-    this.dataSheets.forEach(sheet => {
+    validQuestionSheets.forEach(sheet => {
       const sheetResult = this.detector.detect(sheet);
       if (sheetResult.mapping.questionCol !== null && sheetResult.mapping.correctAnswerCol !== null) {
         const qList = this.builder.buildQuestions(sheet, sheetResult.mapping);

@@ -44,9 +44,10 @@ export class QuestionBuilderService {
         });
       }
 
-      // Check if this row is a footer, examiner signature, committee note, or non-question row
-      if (this.isFooterOrExaminerRow(String(qText), rawAnswer, mapping.choiceCols.length > 0, explicitChoicesCount, choicesText)) {
-        return; // Ignore and skip footer / signature rows
+      // Check if this row is a lookup entry, footer, examiner signature, committee note, or non-question row
+      if (this.isLookupRow(String(qText), explicitChoicesCount) || 
+          this.isFooterOrExaminerRow(String(qText), rawAnswer, mapping.choiceCols.length > 0, explicitChoicesCount, choicesText)) {
+        return; // Ignore and skip lookup / footer / signature rows
       }
 
       // True / False fallback if choices not explicitly listed in Excel option columns
@@ -127,6 +128,31 @@ export class QuestionBuilderService {
     });
 
     return questions;
+  }
+
+  private isLookupRow(qText: string, explicitChoicesCount: number): boolean {
+    const text = String(qText || '').toLowerCase().replace(/[*_\s]+/g, ' ').trim();
+    if (!text) return true;
+
+    // Matches e.g. "1 - اختيار من متعدد", "2 - صح/خطأ", "3 - مقالي", "7 - متعدد الإجابات"
+    const questionTypeRegex = /^(?:\d+[\s\-\.\)]*)?(?:اختيار من متعدد|اختيار واحد|صح\s*[\/\\]\s*خطأ|صواب\s*[\/\\]\s*خطأ|مقالي|سؤال مقالي|مطابقة|توصيل|أكمل الفراغ|اكمل الفراغ|أكمل|اكمل|ترتيب|متعدد الإجابات|متعدد الاجابات|متعدد الاختيارات|إملاء الفراغات|املاء الفراغات|multiple choice|single choice|true\s*[\/\\]\s*false|matching|essay|fill in the blanks?|short answers?)$/i;
+    if (questionTypeRegex.test(text)) {
+      return true;
+    }
+
+    // Matches e.g. "1 - سهل", "2 - متوسط", "3 - صعب", "4 - صعب جدا", "5 - تفوق"
+    const difficultyRegex = /^(?:\d+[\s\-\.\)]*)?(?:سهل|متوسط|صعب|صعب جدا|تفوق|easy|medium|hard|very hard)$/i;
+    if (difficultyRegex.test(text)) {
+      return true;
+    }
+
+    // Matches table headers that ended up in row cells
+    const lookupHeadersRegex = /^(?:أنواع الأسئلة|انواع الاسئلة|أنواع الاسئله|انواع الاسئله|مستويات الصعوبة|نماذج الإجابة الصحيحة|نماذج الاجابة الصحيحة|نماذج الإجابة|نماذج الاجابة|قائمة الأنواع|question types?|difficulty levels?|answer templates?)$/i;
+    if (lookupHeadersRegex.test(text)) {
+      return true;
+    }
+
+    return false;
   }
 
   private isFooterOrExaminerRow(

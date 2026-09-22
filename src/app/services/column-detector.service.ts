@@ -10,7 +10,9 @@ export class ColumnDetectorService {
     'label', 'lable', 'materials and instructions', 'comprehensive questions',
     'المواد العامة', 'التعليمات', 'مطلوبة للأسئلة', 'شرح الإجابة', 'شرح', 'التفسير',
     'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'كود المرجع', 'qeustion type', 'question type',
-    'question tybe', 'qeustion tybe', 'نوع السؤال', 'النتيجة', 'نطاقات مشتركة'
+    'question tybe', 'qeustion tybe', 'نوع السؤال', 'النتيجة', 'نطاقات مشتركة',
+    'أنواع الأسئلة', 'انواع الاسئلة', 'أنواع الاسئله', 'انواع الاسئله', 'مستويات الصعوبة',
+    'نماذج الإجابة', 'نماذج الاجابة', 'نماذج الإجابة الصحيحة', 'نماذج الاجابة الصحيحة'
   ];
 
   // Narrower excludes for Pass 2 (content-based fallback) — only skip structural/numbering columns.
@@ -19,7 +21,8 @@ export class ColumnDetectorService {
   private pass2Excludes = [
     'serial', 'serial no.', 'score', 'difficulty', 'range',
     'label', 'lable', 'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'كود المرجع',
-    'qeustion type', 'question type', 'question tybe', 'qeustion tybe', 'نوع السؤال'
+    'qeustion type', 'question type', 'question tybe', 'qeustion tybe', 'نوع السؤال',
+    'أنواع الأسئلة', 'انواع الاسئلة', 'مستويات الصعوبة', 'نماذج الإجابة', 'نماذج الاجابة'
   ];
 
   private cleanHeader(h: any): string {
@@ -167,9 +170,10 @@ export class ColumnDetectorService {
     if (this.isTypeHeader(h)) return false;
     const norm = this.cleanHeader(h);
     if (this.knownExcludes.some(ex => norm.includes(ex))) return false;
+    if (['أنواع الأسئلة', 'انواع الاسئلة', 'أنواع الاسئله', 'انواع الاسئله', 'مستويات الصعوبة', 'نماذج الإجابة', 'نماذج الاجابة'].some(ex => norm.includes(ex))) return false;
     const matches = [
       'question text', 'question body', 'q_text', 'qtitle', 'نص السؤال', 'مضمون السؤال',
-      'question', 'questions', 'q.', 'السؤال', 'سؤال', 'أسئلة', 'الأسئلة', 'الجذعية', 'جذعية'
+      'question', 'questions', 'q.', 'السؤال', 'سؤال', 'الجذعية', 'جذعية'
     ];
     return matches.some(p => norm === p || norm.includes(p));
   }
@@ -202,7 +206,7 @@ export class ColumnDetectorService {
     const norm = this.cleanHeader(h);
     return [
       'qeustion type', 'question type', 'question tybe', 'qeustion tybe',
-      'qtype', 'q_type', 'type', 'النوع', 'نوع السؤال'
+      'qtype', 'q_type', 'type', 'النوع', 'نوع السؤال', 'أنواع الأسئلة', 'انواع الاسئلة', 'أنواع الاسئله', 'انواع الاسئله'
     ].some(p => norm.includes(p));
   }
 
