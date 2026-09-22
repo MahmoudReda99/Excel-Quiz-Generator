@@ -6,7 +6,8 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "audit": "npx tsc src/app/services/*.ts --target ES2022 --module ES2022 --moduleResolution node --skipLibCheck --experimentalDecorators --outDir ./dist-test && echo '{\"type\": \"module\"}' > dist-test/package.json && node test-comprehensive-suite.mjs"
   },
   "private": true,
   "dependencies": {

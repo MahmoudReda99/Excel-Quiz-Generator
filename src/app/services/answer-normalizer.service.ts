@@ -28,6 +28,17 @@ export class AnswerNormalizerService {
       return this.matchSingleAnswer(strAnswer, choices);
     }
 
+    // Check if strAnswer is a single choice label followed by descriptive text (e.g. "د( 2 ك مش ميكا + 1 ك بب" or "أ) رئيس الأركان")
+    const singleOptionWithTextMatch = strAnswer.match(/^[\(\[]?\s*([A-Ha-hأ-ي1-8])[\.\)\:\-\(][\(\]]?\s+(.+)$/);
+    if (singleOptionWithTextMatch) {
+      const labelCandidate = singleOptionWithTextMatch[1];
+      const trailingText = singleOptionWithTextMatch[2].trim();
+      const hasMoreMarkers = /(?:^|[,;\s\u060C\u061B\/\+&]+)[\(\[]?\s*([A-Ha-hأ-ي1-8])[\.\)\:\-\(][\(\]]?(?=\s+|$)/.test(trailingText);
+      if (!hasMoreMarkers) {
+        return this.matchSingleAnswer(labelCandidate, choices);
+      }
+    }
+
     // Check if string contains multi-answer delimiters: comma, Arabic comma, semicolon, Arabic semicolon, slash, plus, '&', or ' و '
     const hasDelimiter = /[,;\u060C\u061B\/\+&]|\s+و\s+/.test(strAnswer);
 

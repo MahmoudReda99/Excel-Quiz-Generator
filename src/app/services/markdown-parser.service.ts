@@ -132,12 +132,12 @@ export class MarkdownParserService {
           choiceText = choiceText.replace(/^\*\*\)?\s*/, '').replace(/\*\*$/, '').replace(/[—\-\s]+$/, '').trim();
 
           // Extract inline explanation if present
-          if (choiceText.includes('المرجع')) {
-            const expRegex = /(.*?)\s*[\(\)\[\]]\s*(.*?(?:المرجع|ص\s*\d+|بند|صفحة).*?)[\(\)\[\]]?\s*$/;
+          if (choiceText.includes('المرجع') || choiceText.includes('بند') || choiceText.includes('صفحة')) {
+            const expRegex = /[\(\[]\s*([^()\[\]]*(?:المرجع|ص\s*\d+|بند|صفحة)[^()\[\]]*)\s*[\)\]]?\s*$/;
             const expMatch = choiceText.match(expRegex);
-            if (expMatch) {
-              choiceText = expMatch[1].replace(/[—\-\s]+$/, '').trim();
-              const exp = expMatch[2].replace(/[\)\(\]\[]\s*$/, '').trim();
+            if (expMatch && expMatch.index !== undefined) {
+              const exp = expMatch[1].replace(/[\)\(\]\[]\s*$/, '').trim();
+              choiceText = choiceText.slice(0, expMatch.index).replace(/[—\-\s]+$/, '').trim();
               currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + exp;
             }
           }
@@ -352,11 +352,13 @@ export class MarkdownParserService {
               let lastChoice = currentChoices[currentChoices.length - 1];
               lastChoice.text += ' ' + cleanContent;
               
-              const expRegex = /(.*?)\s*[\(\)\[\]]\s*(.*?(?:المرجع|ص\s*\d+|بند|صفحة).*?)[\(\)\[\]]?\s*$/;
-              const expMatch = lastChoice.text.match(expRegex);
-              if (expMatch) {
-                lastChoice.text = expMatch[1].replace(/[—\-\s]+$/, '').trim();
-                currentExplanation = expMatch[2].replace(/[\)\(\]\[]\s*$/, '').trim();
+              if (lastChoice.text.includes('المرجع') || lastChoice.text.includes('بند') || lastChoice.text.includes('صفحة')) {
+                const expRegex = /[\(\[]\s*([^()\[\]]*(?:المرجع|ص\s*\d+|بند|صفحة)[^()\[\]]*)\s*[\)\]]?\s*$/;
+                const expMatch = lastChoice.text.match(expRegex);
+                if (expMatch && expMatch.index !== undefined) {
+                  currentExplanation = expMatch[1].replace(/[\)\(\]\[]\s*$/, '').trim();
+                  lastChoice.text = lastChoice.text.slice(0, expMatch.index).replace(/[—\-\s]+$/, '').trim();
+                }
               }
             }
           } else {
