@@ -17,6 +17,97 @@ const builder = new QuestionBuilderService(normalizer);
 const excelParser = new ExcelParserService();
 const mdParser = new MarkdownParserService();
 
+function assembleLineText(items) {
+  if (!items || items.length === 0) return '';
+  const lines = [];
+  const sorted = [...items].sort((a, b) => b.y - a.y);
+  for (const it of sorted) {
+    let placed = false;
+    for (const line of lines) {
+      if (Math.abs(line.y - it.y) <= 4) {
+        line.items.push(it);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      lines.push({ y: it.y, items: [it] });
+    }
+  }
+
+  const resultLines = lines.map(line => {
+    line.items.sort((a, b) => b.x - a.x);
+    return line.items.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim();
+  });
+
+  return resultLines.join(' ');
+}
+
+function extractPageTable(items, viewportWidth) {
+  const rightNumbers = items
+    .filter(it => it.x > viewportWidth * 0.6 && /^\d+$/.test(it.str.trim()))
+    .sort((a, b) => b.y - a.y);
+
+  if (rightNumbers.length < 3) return null;
+
+  let markdown = '';
+
+  for (let i = 0; i < rightNumbers.length; i++) {
+    const cur = rightNumbers[i];
+    const prev = i > 0 ? rightNumbers[i - 1] : null;
+    const next = i < rightNumbers.length - 1 ? rightNumbers[i + 1] : null;
+
+    const topY = prev ? (prev.y + cur.y) / 2 : (next ? cur.y + (cur.y - next.y) / 2 : cur.y + 25);
+    const bottomY = next ? (cur.y + next.y) / 2 : (prev ? cur.y - (prev.y - cur.y) / 2 : cur.y - 25);
+
+    const rowItems = items.filter(it => it.y <= topY && it.y > bottomY && it !== cur);
+
+    const hasTFAnswer = rowItems.some(it => it.x < 70 && /^(?:true|false|صح|خطأ)$/i.test(it.str.trim()));
+    const hasMCQAnswer = rowItems.some(it => it.x >= 350 && it.x < 400 && /^[A-D]$/i.test(it.str.trim()));
+
+    const qNum = parseInt(cur.str.trim(), 10);
+
+    if (hasTFAnswer || (!hasMCQAnswer && rowItems.some(it => it.x < 70))) {
+      const ansItems = rowItems.filter(it => it.x < 70);
+      const qItems = rowItems.filter(it => it.x >= 70);
+      const rawAns = ansItems.map(it => it.str.trim().toLowerCase()).join(' ');
+      let ansKey = 'A';
+      if (rawAns.includes('false') || rawAns.includes('خطأ')) {
+        ansKey = 'B';
+      }
+      const qText = assembleLineText(qItems);
+      if (qText) {
+        markdown += `\n\n#### السؤال ${qNum} :\n${qText}\n- (A) صح\n- (B) خطأ\n**الإجابة:** ${ansKey}\n`;
+      }
+    } else {
+      const qItems = rowItems.filter(it => it.x >= 395);
+      const ansItems = rowItems.filter(it => it.x >= 350 && it.x < 395);
+      const aItems = rowItems.filter(it => it.x >= 270 && it.x < 350);
+      const bItems = rowItems.filter(it => it.x >= 190 && it.x < 270);
+      const cItems = rowItems.filter(it => it.x >= 115 && it.x < 190);
+      const dItems = rowItems.filter(it => it.x < 115);
+
+      const qText = assembleLineText(qItems);
+      const ansKey = ansItems.map(it => it.str.trim().toUpperCase()).join('') || 'A';
+      const choiceA = assembleLineText(aItems);
+      const choiceB = assembleLineText(bItems);
+      const choiceC = assembleLineText(cItems);
+      const choiceD = assembleLineText(dItems);
+
+      if (qText) {
+        markdown += `\n\n#### السؤال ${qNum} :\n${qText}\n`;
+        if (choiceA) markdown += `- (A) ${choiceA}\n`;
+        if (choiceB) markdown += `- (B) ${choiceB}\n`;
+        if (choiceC) markdown += `- (C) ${choiceC}\n`;
+        if (choiceD) markdown += `- (D) ${choiceD}\n`;
+        markdown += `**الإجابة:** ${ansKey}\n`;
+      }
+    }
+  }
+
+  return markdown;
+}
+
 // PDF Text Extractor replicating PdfParserService logic
 async function extractPdfText(filePath) {
   const data = new Uint8Array(fs.readFileSync(filePath));
@@ -27,23 +118,40 @@ async function extractPdfText(filePath) {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
-    let lastY = -1, lastX = -1, lastW = 0, pageText = '';
-    for (const item of textContent.items) {
-      if (lastY !== -1 && Math.abs(lastY - item.transform[5]) > 4) {
-        pageText += '\n';
-        lastX = -1;
-      } else if (lastX !== -1) {
-        let gap = item.transform[4] < lastX 
-          ? lastX - (item.transform[4] + item.width) 
-          : item.transform[4] - (lastX + lastW);
-        if (gap > 2) pageText += ' ';
+    const viewport = page.getViewport({ scale: 1.0 });
+
+    const items = textContent.items
+      .map(it => ({
+        str: it.str,
+        x: it.transform[4],
+        y: it.transform[5],
+        w: it.width,
+        h: it.height || 10
+      }))
+      .filter(it => it.str && it.str.trim().length > 0);
+
+    const tableMd = extractPageTable(items, viewport.width);
+    if (tableMd) {
+      fullText += tableMd + '\n\n';
+    } else {
+      let lastY = -1, lastX = -1, lastW = 0, pageText = '';
+      for (const item of textContent.items) {
+        if (lastY !== -1 && Math.abs(lastY - item.transform[5]) > 4) {
+          pageText += '\n';
+          lastX = -1;
+        } else if (lastX !== -1) {
+          let gap = item.transform[4] < lastX 
+            ? lastX - (item.transform[4] + item.width) 
+            : item.transform[4] - (lastX + lastW);
+          if (gap > 2) pageText += ' ';
+        }
+        pageText += item.str;
+        lastY = item.transform[5];
+        lastX = item.transform[4];
+        lastW = item.width;
       }
-      pageText += item.str;
-      lastY = item.transform[5];
-      lastX = item.transform[4];
-      lastW = item.width;
+      fullText += pageText + '\n\n';
     }
-    fullText += pageText + '\n\n';
   }
 
   // Bracket swaps

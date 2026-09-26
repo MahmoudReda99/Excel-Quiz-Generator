@@ -19,9 +19,6 @@ export class MarkdownParserService {
   normalizeInputText(text: string): string {
     if (!text) return '';
     let clean = text.replace(/\u0640/g, '');
-    // 0. Inline answer annotations (e.g. ] الإجابة الصحيحة [ or [الإجابة الصحيحة] or ] خيار صحيح [)
-    // Convert them to standard markdown checkbox task list marker [x]
-    clean = clean.replace(/[\[\]\(\)]?\s*(?:ة\s*حيحصلا\s*ة\s*باجلاإ|اإلجابة\s*الصحيحة|الإجابة\s*الصحيحة|خيار\s*(?:صحيح|معتمد)(?:\s*أيضًا\s*بالمرجع)?)\s*[\[\]\(\)]?/gi, ' [x] ');
 
     // 1. True / False reversed pairs (e.g. حص ) أ أطخ ) ب)
     clean = clean.replace(/حص\s*[\(\)]\s*([أA])\s*أطخ\s*[\(\)]\s*([بB])/gi, '\n($1) صح\n($2) خطأ\n');
@@ -33,7 +30,10 @@ export class MarkdownParserService {
     clean = clean.replace(/([\(\)]?\s*[أبجدa-h1-8]\s*[\(\)]?|حص\s*[\(\)]?\s*[أA]\s*[\(\)]?|أطخ\s*[\(\)]?\s*[بB]\s*[\(\)]?)\s*[:\s]*(?:ة\s*حيحصلا|الصحيحة|اإلجابة|الإجابة|الحل)\s*(?:ة\s*باجلاإ|باجلاإ|الإجابة|اإلجابة|الصحيحة)[:\s]*/gi, '\nالإجابة الصحيحة: $1\n');
     clean = clean.replace(/[:\s]*(?:ة\s*حيحصلا|الصحيحة|اإلجابة|الإجابة|الحل)\s*(?:ة\s*باجلاإ|باجلاإ|الإجابة|اإلجابة|الصحيحة)[:\s]*/gi, '\nالإجابة الصحيحة: ');
 
-    // 3. Question Header normalization (handles reversed 'الؤسلا' / 'لؤسملا' / 'لاؤسلا' from single-line PDF extraction)
+    // 3. Inline bracket annotations (e.g. [الإجابة الصحيحة] or [خيار صحيح])
+    clean = clean.replace(/[\[\]\(\)]\s*(?:ة\s*حيحصلا\s*ة\s*باجلاإ|اإلجابة\s*الصحيحة|الإجابة\s*الصحيحة|خيار\s*(?:صحيح|معتمد)(?:\s*أيضًا\s*بالمرجع)?)\s*[\[\]\(\)]/gi, ' [x] ');
+
+    // 4. Question Header normalization (handles reversed 'الؤسلا' / 'لؤسملا' / 'لاؤسلا' from single-line PDF extraction)
     const reversedHeaderRegex = /(?:[:\s]+(\d+)\s*(?:الؤسلا|لؤسملا|لؤئسملا|لاؤسلا)|(?:الؤسلا|لؤسملا|لؤئسملا|لاؤسلا)\s*[:\s]*(\d+))/gi;
     clean = clean.replace(reversedHeaderRegex, (m, p1, p2) => '\n\n#### السؤال ' + (p1 || p2) + ' :\n');
 
