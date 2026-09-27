@@ -20,7 +20,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             <span>{{ (isStudyMode ? 'review.studyTitle' : 'review.title') | translate }}</span>
           </h1>
           <p *ngIf="isStudyMode" class="text-sm font-semibold text-gray-600 mt-1">
-            {{ 'review.studySubtitle' | translate }}
+            {{ 'review.studySubtitle' | translate }} (إجمالي: {{ questions.length }} سؤال)
           </p>
         </div>
 
@@ -33,6 +33,38 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             <span>{{ 'review.startQuizNow' | translate }}</span>
           </button>
         </div>
+      </div>
+
+      <!-- Duplicates Notice in Study Mode -->
+      <div *ngIf="isStudyMode && duplicateCount > 0" class="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 text-sm font-semibold shadow-sm">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🔁</span>
+          <div>
+            <p>يوجد <span class="font-black text-amber-950">{{ duplicateCount }}</span> أسئلة مكررة في هذه القائمة.</p>
+            <p class="text-xs text-amber-800 font-normal mt-0.5">يمكنك إزالة التكرار للاحتفاظ بنسخة واحدة فقط من كل سؤال مكرر.</p>
+          </div>
+        </div>
+        <button 
+          (click)="clearDuplicates()"
+          class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 flex-shrink-0">
+          <span>🧹</span>
+          <span>{{ 'validation.clearDuplicates' | translate }}</span>
+        </button>
+      </div>
+
+      <!-- Duplicates Cleared Message with Undo Option -->
+      <div *ngIf="isStudyMode && duplicatesClearedMessage" class="bg-emerald-50 border border-emerald-300 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-emerald-900 text-sm font-semibold shadow-sm">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">✅</span>
+          <span>{{ duplicatesClearedMessage }}</span>
+        </div>
+        <button 
+          *ngIf="canRestoreDuplicates"
+          (click)="restoreDuplicates()"
+          class="px-3.5 py-1.5 bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap">
+          <span>↩️</span>
+          <span>{{ 'validation.restoreDuplicates' | translate }}</span>
+        </button>
       </div>
 
       <!-- Question cards -->
@@ -50,6 +82,11 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           {{ (isStudyMode ? 'review.backToAnalysis' : 'review.backResults') | translate }}
         </button>
 
+        <button *ngIf="isStudyMode && canRestoreDuplicates && duplicateCount === 0" (click)="restoreDuplicates()" class="px-5 py-3.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300 rounded-xl font-bold text-sm transition-colors w-full sm:w-auto flex items-center justify-center gap-2">
+          <span>↩️</span>
+          <span>{{ 'validation.restoreDuplicates' | translate }}</span>
+        </button>
+
         <button *ngIf="isStudyMode" (click)="startQuizNow()" class="btn-primary px-8 py-3.5 rounded-xl font-bold text-base shadow-md hover:shadow-lg transition-all w-full sm:w-auto flex items-center justify-center gap-2">
           <span>{{ 'review.startQuizNow' | translate }}</span>
         </button>
@@ -59,7 +96,14 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 })
 export class ReviewPageComponent implements OnInit {
   questions: QuizQuestion[] = [];
+  backupQuestions: QuizQuestion[] = [];
   isStudyMode: boolean = false;
+  duplicateCount: number = 0;
+  duplicatesClearedMessage: string = '';
+
+  get canRestoreDuplicates(): boolean {
+    return this.backupQuestions.length > this.questions.length;
+  }
 
   constructor(
     private quizStateService: QuizStateService,
@@ -73,7 +117,39 @@ export class ReviewPageComponent implements OnInit {
       return;
     }
     this.questions = state.questions;
+    this.backupQuestions = [];
     this.isStudyMode = state.status === 'study' || state.result === null;
+    this.duplicateCount = this.quizStateService.getDuplicateCount(this.questions);
+  }
+
+  clearDuplicates() {
+    const beforeCount = this.questions.length;
+    this.backupQuestions = [...this.questions];
+    this.quizStateService.setBackupQuestions(this.backupQuestions);
+
+    this.questions = this.quizStateService.deduplicateQuestions(this.questions);
+    const removedCount = beforeCount - this.questions.length;
+    this.duplicateCount = 0;
+
+    this.quizStateService.setQuestions(this.questions);
+    this.quizStateService.setValidatedQuestions(this.questions);
+    this.quizStateService.startStudyMode();
+
+    this.duplicatesClearedMessage = `تمت إزالة ${removedCount} سؤال مكرر بنجاح، وتم الاحتفاظ بنسخة واحدة فريدة من كل سؤال (${this.questions.length} سؤال إجمالي).`;
+  }
+
+  restoreDuplicates() {
+    if (this.backupQuestions.length === 0) return;
+    this.questions = [...this.backupQuestions];
+    this.backupQuestions = [];
+    this.quizStateService.setBackupQuestions(null);
+    this.duplicateCount = this.quizStateService.getDuplicateCount(this.questions);
+
+    this.quizStateService.setQuestions(this.questions);
+    this.quizStateService.setValidatedQuestions(this.questions);
+    this.quizStateService.startStudyMode();
+
+    this.duplicatesClearedMessage = '';
   }
 
   goBack() {

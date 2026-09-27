@@ -29,6 +29,38 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         </div>
       </div>
 
+      <div *ngIf="duplicateCount > 0" class="bg-amber-50 border border-amber-300 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 text-sm font-semibold shadow-sm">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🔁</span>
+          <div>
+            <p>يوجد <span class="font-black text-amber-950">{{ duplicateCount }}</span> أسئلة مكررة في بنك الأسئلة.</p>
+            <p class="text-xs text-amber-800 font-normal mt-0.5">يمكنك إزالة التكرار للاحتفاظ بنسخة واحدة فقط من كل سؤال مكرر.</p>
+          </div>
+        </div>
+        <button 
+          type="button"
+          (click)="clearDuplicates.emit()"
+          class="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 flex-shrink-0">
+          <span>🧹</span>
+          <span>{{ 'validation.clearDuplicates' | translate }}</span>
+        </button>
+      </div>
+
+      <div *ngIf="duplicatesClearedMessage" class="bg-emerald-50 border border-emerald-300 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-emerald-900 text-sm font-semibold shadow-sm">
+        <div class="flex items-center gap-2">
+          <span class="text-base">✅</span>
+          <span>{{ duplicatesClearedMessage }}</span>
+        </div>
+        <button 
+          *ngIf="canRestoreDuplicates"
+          type="button"
+          (click)="restoreDuplicates.emit()"
+          class="px-3.5 py-1.5 bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap">
+          <span>↩️</span>
+          <span>{{ 'validation.restoreDuplicates' | translate }}</span>
+        </button>
+      </div>
+
       <div class="space-y-4">
         <label class="flex items-center space-x-3 rtl:space-x-reverse cursor-pointer">
           <input type="checkbox" [(ngModel)]="randomizeQuestions" class="form-checkbox h-5 w-5 text-primary-600 rounded">
@@ -94,7 +126,12 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 })
 export class QuizSettingsComponent {
   @Input() totalQuestions: number = 0;
+  @Input() duplicateCount: number = 0;
+  @Input() duplicatesClearedMessage: string = '';
+  @Input() canRestoreDuplicates: boolean = false;
   @Output() startQuiz = new EventEmitter<QuizConfig>();
+  @Output() clearDuplicates = new EventEmitter<void>();
+  @Output() restoreDuplicates = new EventEmitter<void>();
 
   mode: 'practice' | 'exam' = 'practice';
   randomizeQuestions: boolean = false;

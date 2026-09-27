@@ -105,8 +105,14 @@ import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
       <div class="max-w-2xl mx-auto w-full" *ngIf="allQuestions.length > 0">
         <app-validation-report 
           [validationResult]="validationResult"
+          [duplicateCount]="duplicateCount"
+          [totalCount]="allQuestions.length"
+          [duplicatesClearedMessage]="duplicatesClearedMessage"
+          [canRestoreDuplicates]="canRestoreDuplicates"
           (fixMapping)="showManualMapping = true"
           (skipInvalid)="onSkipInvalid()"
+          (clearDuplicates)="onClearDuplicates()"
+          (restoreDuplicates)="onRestoreDuplicates()"
           (studyMode)="onStudyMode()"
           (generateQuiz)="onGenerateQuiz()">
         </app-validation-report>
@@ -146,8 +152,15 @@ export class AnalysisComponent implements OnInit {
   showManualMapping = false;
 
   allQuestions: QuizQuestion[] = [];
+  backupQuestions: QuizQuestion[] = [];
   previewQuestions: QuizQuestion[] = [];
   validationResult: ValidationResult = { validCount: 0, issues: [], isValid: false };
+  duplicateCount = 0;
+  duplicatesClearedMessage = '';
+
+  get canRestoreDuplicates(): boolean {
+    return this.backupQuestions.length > this.allQuestions.length;
+  }
 
   ngOnInit() {
     const data = this.quizState.excelData$.value;
@@ -171,6 +184,8 @@ export class AnalysisComponent implements OnInit {
   }
 
   onSheetChange() {
+    this.duplicatesClearedMessage = '';
+    this.backupQuestions = [];
     this.loadSheetData();
   }
 
@@ -207,8 +222,14 @@ export class AnalysisComponent implements OnInit {
     });
 
     this.allQuestions = combinedQuestions;
+    this.backupQuestions = [];
     this.previewQuestions = this.allQuestions.slice(0, 3);
     this.validationResult = this.validator.validate(this.allQuestions);
+    this.duplicateCount = this.quizState.getDuplicateCount(this.allQuestions);
+    
+    this.quizState.setQuestions(this.allQuestions);
+    this.quizState.setValidatedQuestions(this.allQuestions);
+    this.quizState.setValidationResult(this.validationResult);
   }
 
   detectColumns() {
@@ -231,8 +252,51 @@ export class AnalysisComponent implements OnInit {
   processQuestions() {
     if (!this.currentSheet) return;
     this.allQuestions = this.builder.buildQuestions(this.currentSheet, this.mapping);
+    this.backupQuestions = [];
     this.previewQuestions = this.allQuestions.slice(0, 3);
     this.validationResult = this.validator.validate(this.allQuestions);
+    this.duplicateCount = this.quizState.getDuplicateCount(this.allQuestions);
+
+    this.quizState.setQuestions(this.allQuestions);
+    this.quizState.setValidatedQuestions(this.allQuestions);
+    this.quizState.setValidationResult(this.validationResult);
+  }
+
+  onClearDuplicates() {
+    const beforeCount = this.allQuestions.length;
+    this.backupQuestions = [...this.allQuestions];
+    this.quizState.setBackupQuestions(this.backupQuestions);
+    
+    const deduplicated = this.quizState.deduplicateQuestions(this.allQuestions);
+    const removedCount = beforeCount - deduplicated.length;
+
+    this.allQuestions = deduplicated;
+    this.previewQuestions = this.allQuestions.slice(0, 3);
+    this.validationResult = this.validator.validate(this.allQuestions);
+    this.duplicateCount = 0;
+
+    this.quizState.setQuestions(this.allQuestions);
+    this.quizState.setValidatedQuestions(this.allQuestions);
+    this.quizState.setValidationResult(this.validationResult);
+
+    this.duplicatesClearedMessage = `تمت إزالة ${removedCount} سؤال مكرر بنجاح، وتم الاحتفاظ بنسخة واحدة فريدة من كل سؤال (${this.allQuestions.length} سؤال متبقي).`;
+  }
+
+  onRestoreDuplicates() {
+    if (this.backupQuestions.length === 0) return;
+    this.allQuestions = [...this.backupQuestions];
+    this.backupQuestions = [];
+    this.quizState.setBackupQuestions(null);
+
+    this.previewQuestions = this.allQuestions.slice(0, 3);
+    this.validationResult = this.validator.validate(this.allQuestions);
+    this.duplicateCount = this.quizState.getDuplicateCount(this.allQuestions);
+
+    this.quizState.setQuestions(this.allQuestions);
+    this.quizState.setValidatedQuestions(this.allQuestions);
+    this.quizState.setValidationResult(this.validationResult);
+
+    this.duplicatesClearedMessage = '';
   }
 
   onSkipInvalid() {
@@ -240,6 +304,11 @@ export class AnalysisComponent implements OnInit {
     this.allQuestions = this.allQuestions.filter((_, idx) => !invalidIndices.has(idx));
     this.previewQuestions = this.allQuestions.slice(0, 3);
     this.validationResult = this.validator.validate(this.allQuestions);
+    this.duplicateCount = this.quizState.getDuplicateCount(this.allQuestions);
+    
+    this.quizState.setQuestions(this.allQuestions);
+    this.quizState.setValidatedQuestions(this.allQuestions);
+    this.quizState.setValidationResult(this.validationResult);
   }
 
   onStudyMode() {

@@ -18,6 +18,11 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         <app-quiz-settings 
           *ngIf="totalQuestions > 0"
           [totalQuestions]="totalQuestions" 
+          [duplicateCount]="duplicateCount"
+          [duplicatesClearedMessage]="duplicatesClearedMessage"
+          [canRestoreDuplicates]="canRestoreDuplicates"
+          (clearDuplicates)="onClearDuplicates()"
+          (restoreDuplicates)="onRestoreDuplicates()"
           (startQuiz)="onStartQuiz($event)">
         </app-quiz-settings>
       </div>
@@ -26,6 +31,12 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 })
 export class SettingsPageComponent implements OnInit {
   totalQuestions: number = 0;
+  duplicateCount: number = 0;
+  duplicatesClearedMessage: string = '';
+
+  get canRestoreDuplicates(): boolean {
+    return this.quizStateService.canRestoreDuplicates();
+  }
 
   constructor(
     private quizStateService: QuizStateService,
@@ -34,10 +45,28 @@ export class SettingsPageComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.totalQuestions = this.quizStateService.getAvailableQuestionsCount();
+    this.refreshQuestions();
     if (this.totalQuestions === 0) {
       this.router.navigate(['/']);
     }
+  }
+
+  refreshQuestions() {
+    const questions = this.quizStateService.validatedQuestions$.value;
+    this.totalQuestions = questions.length;
+    this.duplicateCount = this.quizStateService.getDuplicateCount(questions);
+  }
+
+  onClearDuplicates() {
+    const removedCount = this.quizStateService.removeDuplicates();
+    this.refreshQuestions();
+    this.duplicatesClearedMessage = `تمت إزالة ${removedCount} سؤال مكرر بنجاح، وتم الاحتفاظ بنسخة واحدة فريدة من كل سؤال (${this.totalQuestions} سؤال إجمالي).`;
+  }
+
+  onRestoreDuplicates() {
+    this.quizStateService.restoreDuplicates();
+    this.refreshQuestions();
+    this.duplicatesClearedMessage = '';
   }
 
   onStartQuiz(config: QuizConfig) {

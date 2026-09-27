@@ -61,7 +61,14 @@ export const en = {
     studyMode: 'Study Mode (Show Answers)',
     cancel: 'Cancel',
     generateQuiz: 'Start Quiz',
-    noQuestions: 'No valid questions found. Please check column mapping.'
+    noQuestions: 'No valid questions found. Please check column mapping.',
+    duplicatesFound: 'duplicate questions detected',
+    noDuplicates: 'All questions are unique (no duplicates)',
+    clearDuplicates: 'Clear Duplicates (Keep 1 copy)',
+    duplicatesCleared: 'Duplicates cleared successfully, keeping one copy of each question',
+    restoreDuplicates: 'Undo & Restore Duplicates',
+    duplicatesRestored: 'All duplicate questions restored successfully',
+    duplicateDesc: 'Identical questions detected. You can remove duplicates to keep only one copy of each question.'
   },
   settings: {
     title: 'Quiz Settings',

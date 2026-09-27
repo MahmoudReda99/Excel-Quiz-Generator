@@ -66,6 +66,104 @@ export class QuizStateService {
     this.validatedQuestions$.next(questions);
   }
 
+  getQuestionKey(q: QuizQuestion): string {
+    if (!q || !q.text || !q.text.trim()) return q?.id || Math.random().toString();
+    const normalized = q.text
+      .normalize('NFKC')
+      .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+      .replace(/[أإآٱ]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/[ىي]/g, 'ي')
+      .replace(/ؤ/g, 'و')
+      .replace(/ئ/g, 'ي')
+      .replace(/^(?:س\s*\d*|\d+)\s*[\/:\.\-\)\(]+\s*/gi, '')
+      .replace(/[؟?.,:;!\-_()[\]{}"'«»"“”\/\\*#~^%&+=><]/g, ' ')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+    return normalized || q.id;
+  }
+
+  getDuplicateCount(questions: QuizQuestion[]): number {
+    if (!questions || questions.length <= 1) return 0;
+    const seen = new Set<string>();
+    let dupCount = 0;
+    for (const q of questions) {
+      const key = this.getQuestionKey(q);
+      if (seen.has(key)) {
+        dupCount++;
+      } else {
+        seen.add(key);
+      }
+    }
+    return dupCount;
+  }
+
+  private backupBeforeDeduplication: QuizQuestion[] | null = null;
+
+  deduplicateQuestions(questions: QuizQuestion[]): QuizQuestion[] {
+    if (!questions || questions.length <= 1) return questions ? [...questions] : [];
+    const seen = new Set<string>();
+    const unique: QuizQuestion[] = [];
+    for (const q of questions) {
+      const key = this.getQuestionKey(q);
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(q);
+      }
+    }
+    return unique;
+  }
+
+  removeDuplicates(): number {
+    const current = this.validatedQuestions$.value;
+    this.backupBeforeDeduplication = [...current];
+    const deduplicated = this.deduplicateQuestions(current);
+    const removedCount = current.length - deduplicated.length;
+    
+    this.setQuestions(deduplicated);
+    this.setValidatedQuestions(deduplicated);
+    
+    const currentState = this.quizState$.value;
+    if (currentState && currentState.questions && currentState.questions.length > 0) {
+      const stateDeduplicated = this.deduplicateQuestions(currentState.questions);
+      this.quizState$.next({
+        ...currentState,
+        questions: stateDeduplicated
+      });
+    }
+    return removedCount;
+  }
+
+  restoreDuplicates(): number {
+    if (!this.backupBeforeDeduplication) return 0;
+    const restored = [...this.backupBeforeDeduplication];
+    this.setQuestions(restored);
+    this.setValidatedQuestions(restored);
+
+    const currentState = this.quizState$.value;
+    if (currentState && currentState.questions && currentState.questions.length > 0) {
+      this.quizState$.next({
+        ...currentState,
+        questions: restored
+      });
+    }
+    this.backupBeforeDeduplication = null;
+    return restored.length;
+  }
+
+  canRestoreDuplicates(): boolean {
+    return this.backupBeforeDeduplication !== null && this.backupBeforeDeduplication.length > this.validatedQuestions$.value.length;
+  }
+
+  getBackupQuestions(): QuizQuestion[] | null {
+    return this.backupBeforeDeduplication ? [...this.backupBeforeDeduplication] : null;
+  }
+
+  setBackupQuestions(questions: QuizQuestion[] | null): void {
+    this.backupBeforeDeduplication = questions ? [...questions] : null;
+  }
+
   configureQuiz(config: QuizConfig): void {
     this.quizConfig$.next(config);
     const state = this.quizState$.value;
@@ -260,6 +358,7 @@ export class QuizStateService {
     this.validationResult$.next(null);
     this.quizConfig$.next(this.defaultConfig);
     this.quizState$.next({ ...this.defaultState });
+    this.backupBeforeDeduplication = null;
   }
 
   clearData(): void {
