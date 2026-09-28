@@ -62,7 +62,7 @@ export const ar = {
     cancel: 'إلغاء',
     generateQuiz: 'بدء الاختبار',
     noQuestions: 'لم يتم العثور على أسئلة صالحة. يرجى التحقق من تعيين الأعمدة.',
-    duplicatesFound: 'أسئلة مكررة تم اكتشافها',
+    duplicatesFound: 'أسئلة مكررة',
     noDuplicates: 'جميع الأسئلة فريدة (لا يوجد تكرار)',
     clearDuplicates: 'إزالة التكرار (إبقاء نسخة واحدة)',
     duplicatesCleared: 'تمت إزالة التكرار بنجاح والاحتفاظ بنسخة واحدة من كل سؤال',
@@ -147,6 +147,18 @@ export const ar = {
     loading: 'جاري التحميل...',
     error: 'خطأ',
     success: 'نجاح'
+  },
+  search: {
+    placeholder: 'ابحث في نص السؤال، الخيارات، الشرح، أو رقم السؤال...',
+    quickPlaceholder: 'بحث سريع في الأسئلة...',
+    noResults: 'لم يتم العثور على أي أسئلة تطابق بحثك',
+    noResultsDesc: 'جرب استخدام كلمات مفتاحية أخرى أو تحقق من كتابة الكلمات',
+    clear: 'مسح البحث',
+    resultsFound: 'سؤال مطابق',
+    showing: 'عرض',
+    of: 'من أصل',
+    allQuestions: 'جميع الأسئلة',
+    jumpToQuestion: 'الانتقال السريع للسؤال'
   },
   language: {
     arabic: 'العربية',

@@ -1,20 +1,40 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { QuizQuestion } from '../../models/quiz.model';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { AnswerNormalizerService } from '../../services/answer-normalizer.service';
+import { QuestionSearchService } from '../../services/question-search.service';
 
 @Component({
   selector: 'app-question-navigator',
   standalone: true,
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   template: `
-    <div class="space-y-4">
+    <div class="space-y-3">
+      <!-- Search Input Bar -->
+      <div class="relative flex items-center">
+        <span class="absolute start-3 text-gray-400 text-sm pointer-events-none">🔍</span>
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
+          [placeholder]="'search.quickPlaceholder' | translate"
+          class="w-full ps-9 pe-8 py-2 bg-gray-50 hover:bg-gray-100/70 focus:bg-white border border-gray-200 focus:border-primary-500 rounded-xl text-xs font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-200 transition-all"
+        />
+        <button
+          *ngIf="searchQuery"
+          (click)="searchQuery = ''"
+          class="absolute end-2.5 p-0.5 rounded text-gray-400 hover:text-gray-700 text-xs font-bold"
+          title="Clear">
+          ✕
+        </button>
+      </div>
+
       <!-- Filter Tabs -->
       <div class="flex flex-wrap items-center gap-1.5 bg-gray-100 p-1.5 rounded-xl text-xs font-bold">
         <button 
           (click)="activeFilter = 'all'"
-          class="flex-1 py-2 px-3 rounded-lg transition-all min-w-[70px]"
+          class="flex-1 py-1.5 px-2.5 rounded-lg transition-all min-w-[60px]"
           [class.bg-white]="activeFilter === 'all'"
           [class.shadow-sm]="activeFilter === 'all'"
           [class.text-gray-900]="activeFilter === 'all'"
@@ -24,7 +44,7 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
         
         <button 
           (click)="activeFilter = 'correct'"
-          class="flex-1 py-2 px-3 rounded-lg transition-all min-w-[70px]"
+          class="flex-1 py-1.5 px-2.5 rounded-lg transition-all min-w-[60px]"
           [class.bg-white]="activeFilter === 'correct'"
           [class.shadow-sm]="activeFilter === 'correct'"
           [class.text-emerald-700]="activeFilter === 'correct'"
@@ -34,7 +54,7 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
 
         <button 
           (click)="activeFilter = 'wrong'"
-          class="flex-1 py-2 px-3 rounded-lg transition-all min-w-[70px]"
+          class="flex-1 py-1.5 px-2.5 rounded-lg transition-all min-w-[60px]"
           [class.bg-white]="activeFilter === 'wrong'"
           [class.shadow-sm]="activeFilter === 'wrong'"
           [class.text-rose-700]="activeFilter === 'wrong'"
@@ -44,7 +64,7 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
         
         <button 
           (click)="activeFilter = 'unanswered'"
-          class="flex-1 py-2 px-3 rounded-lg transition-all min-w-[70px]"
+          class="flex-1 py-1.5 px-2.5 rounded-lg transition-all min-w-[60px]"
           [class.bg-white]="activeFilter === 'unanswered'"
           [class.shadow-sm]="activeFilter === 'unanswered'"
           [class.text-gray-800]="activeFilter === 'unanswered'"
@@ -53,8 +73,14 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
         </button>
       </div>
 
+      <!-- Match status if query is active -->
+      <div *ngIf="searchQuery" class="text-xs font-bold text-primary-700 px-1 flex items-center justify-between">
+        <span>🔎 {{ visibleCount }} {{ 'search.resultsFound' | translate }}</span>
+        <button (click)="searchQuery = ''" class="text-gray-500 hover:text-gray-800 underline">{{ 'search.clear' | translate }}</button>
+      </div>
+
       <!-- Question Buttons Container with smooth scroll -->
-      <div class="max-h-72 overflow-y-auto p-2 rounded-xl bg-gray-50 border border-gray-200 scrollbar-thin">
+      <div class="max-h-64 overflow-y-auto p-2 rounded-xl bg-gray-50 border border-gray-200 scrollbar-thin">
         <div class="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-15 gap-2">
           <button
             *ngFor="let q of questions; let i = index"
@@ -63,6 +89,10 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
             [ngClass]="getQuestionClass(q, i)">
             <span>{{ i + 1 }}</span>
           </button>
+        </div>
+
+        <div *ngIf="visibleCount === 0" class="text-center py-6 text-gray-500 text-xs font-semibold">
+          {{ 'search.noResults' | translate }} "{{ searchQuery }}"
         </div>
       </div>
 
@@ -93,9 +123,13 @@ export class QuestionNavigatorComponent implements OnChanges {
   @Input() currentIndex: number = 0;
   @Output() navigate = new EventEmitter<number>();
 
+  searchQuery: string = '';
   activeFilter: 'all' | 'correct' | 'wrong' | 'unanswered' = 'all';
 
-  constructor(private normalizer: AnswerNormalizerService) {}
+  constructor(
+    private normalizer: AnswerNormalizerService,
+    private searchService: QuestionSearchService
+  ) {}
 
   ngOnChanges(changes: SimpleChanges): void {}
 
@@ -141,11 +175,21 @@ export class QuestionNavigatorComponent implements OnChanges {
     return this.questions.filter(q => !this.isSubmitted(q)).length;
   }
 
+  get visibleCount(): number {
+    return this.questions.filter((q, idx) => this.shouldShowQuestion(idx, q)).length;
+  }
+
   shouldShowQuestion(index: number, q: QuizQuestion): boolean {
-    if (this.activeFilter === 'all') return true;
-    if (this.activeFilter === 'correct') return this.isCorrect(q);
-    if (this.activeFilter === 'wrong') return this.isWrong(q);
-    if (this.activeFilter === 'unanswered') return !this.isSubmitted(q);
+    // 1. Status Filter Check
+    if (this.activeFilter === 'correct' && !this.isCorrect(q)) return false;
+    if (this.activeFilter === 'wrong' && !this.isWrong(q)) return false;
+    if (this.activeFilter === 'unanswered' && this.isSubmitted(q)) return false;
+
+    // 2. Search Query Check
+    if (this.searchQuery && !this.searchService.matches(q, index, this.searchQuery)) {
+      return false;
+    }
+
     return true;
   }
 

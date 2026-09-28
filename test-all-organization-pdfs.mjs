@@ -20,7 +20,15 @@ async function runTests() {
   const pdfParser = new PdfParserService();
   const mdParser = new MarkdownParserService();
 
-  const targetDir = '../خاص/تنظيم واستخدام عام';
+  function cleanFileName(str) {
+    if (!str) return '';
+    return str.replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '').normalize('NFC').trim();
+  }
+
+  let targetDir = '../خاص/تنظيم واستخدام عام';
+  if (!fs.existsSync(targetDir) && fs.existsSync('../خاص 2/تنظيم واستخدام عام')) {
+    targetDir = '../خاص 2/تنظيم واستخدام عام';
+  }
   const pdfFiles = [
     {
       fileName: 'تنظيم الكتيبة المدفعية.pdf',
@@ -70,20 +78,32 @@ async function runTests() {
 
     console.log(`[TEST ${idx + 1}/${pdfFiles.length}] Testing: "${testDef.fileName}" (${testDef.description})...`);
 
-    function cleanFileName(str) {
-      return str.replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '').normalize('NFC').trim();
+    function findFile(baseDir, targetName) {
+      if (!fs.existsSync(baseDir)) return null;
+      const targetClean = cleanFileName(targetName);
+      const items = fs.readdirSync(baseDir);
+      for (const item of items) {
+        const fullPath = path.join(baseDir, item);
+        const stat = fs.statSync(fullPath);
+        if (stat.isFile() && cleanFileName(item) === targetClean) {
+          return fullPath;
+        } else if (stat.isDirectory() && !item.startsWith('.')) {
+          const found = findFile(fullPath, targetName);
+          if (found) return found;
+        }
+      }
+      return null;
     }
 
-    const targetClean = cleanFileName(testDef.fileName);
-    const actualFileName = allDirFiles.find(f => cleanFileName(f) === targetClean);
+    const matchedPath = findFile(targetDir, testDef.fileName) || findFile('../خاص 2', testDef.fileName) || findFile('../خاص', testDef.fileName);
 
-    if (!actualFileName) {
+    if (!matchedPath) {
       console.error(`  ❌ FAILED: File not found in directory: ${testDef.fileName}`);
       summaryReport.push({ file: testDef.fileName, status: 'FAILED: File Not Found' });
       continue;
     }
 
-    const filePath = path.join(targetDir, actualFileName);
+    const filePath = matchedPath;
     const fileBuffer = fs.readFileSync(filePath);
 
     const startTime = Date.now();

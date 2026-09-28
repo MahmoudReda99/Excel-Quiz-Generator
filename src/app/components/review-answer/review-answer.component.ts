@@ -2,18 +2,19 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { QuizQuestion } from '../../models/quiz.model';
 import { TranslatePipe } from '../../pipes/translate.pipe';
+import { HighlightPipe } from '../../pipes/highlight.pipe';
 import { AnswerNormalizerService } from '../../services/answer-normalizer.service';
 
 @Component({
   selector: 'app-review-answer',
   standalone: true,
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, TranslatePipe, HighlightPipe],
   template: `
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 md:p-6 mb-6" *ngIf="question">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 md:p-6 mb-6 transition-all hover:shadow-md" *ngIf="question">
       <div class="flex items-start justify-between gap-3 mb-4">
         <h3 class="text-lg md:text-xl font-bold text-gray-900 leading-relaxed">
           <span class="text-primary-600 me-2">Q{{ questionNumber }}.</span>
-          {{ question.text }}
+          <span [innerHTML]="question.text | highlight:searchQuery"></span>
         </h3>
         
         <span class="px-3 py-1 rounded-full text-xs font-extrabold whitespace-nowrap flex-shrink-0"
@@ -47,8 +48,7 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
             <span class="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center font-bold text-xs text-gray-700 flex-shrink-0 mt-0.5">
               {{ choice.label || getChoiceLabel(i) }}
             </span>
-            <span class="text-base font-medium text-gray-900 leading-relaxed flex-grow break-words">
-              {{ choice.text }}
+            <span class="text-base font-medium text-gray-900 leading-relaxed flex-grow break-words" [innerHTML]="choice.text | highlight:searchQuery">
             </span>
           </div>
 
@@ -79,7 +79,7 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
         <h4 class="font-bold mb-1 text-sm flex items-center gap-2">
           <span>💡</span> {{ 'review.explanation' | translate }}:
         </h4>
-        <p class="text-sm leading-relaxed text-blue-850">{{ question.explanation }}</p>
+        <p class="text-sm leading-relaxed text-blue-850" [innerHTML]="question.explanation | highlight:searchQuery"></p>
       </div>
     </div>
   `
@@ -87,6 +87,7 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
 export class ReviewAnswerComponent {
   @Input() question!: QuizQuestion;
   @Input() questionNumber!: number;
+  @Input() searchQuery: string = '';
 
   constructor(private normalizer: AnswerNormalizerService) {}
 

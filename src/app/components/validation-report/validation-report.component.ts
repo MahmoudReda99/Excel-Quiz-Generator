@@ -58,18 +58,7 @@ import { ValidationResult } from '../../models/excel.model';
         </button>
       </div>
 
-      <!-- Duplicate Explanation Alert with Clear Count -->
-      <div *ngIf="duplicateCount > 0" class="p-4 bg-amber-50/80 border border-amber-200 rounded-xl text-xs sm:text-sm text-amber-900 flex items-start gap-3">
-        <span class="text-xl flex-shrink-0">ℹ️</span>
-        <div class="space-y-1">
-          <p class="font-bold text-amber-950">
-            تم اكتشاف <span class="underline font-black">{{ duplicateCount }}</span> أسئلة مكررة في الملف.
-          </p>
-          <p class="text-amber-800 text-xs">
-            عند الضغط على <strong>"إزالة التكرار"</strong>، سيتم حذف النسخ الزائدة فقط والإبقاء على نسخة واحدة فريدة من كل سؤال (ولن يتم حذف الأسئلة كاملة).
-          </p>
-        </div>
-      </div>
+
 
       <div *ngIf="validationResult.issues && validationResult.issues.length > 0" class="flex items-center space-x-2 rtl:space-x-reverse text-amber-800 bg-amber-50 p-3.5 rounded-xl border border-amber-200 font-semibold text-sm">
         <svg class="h-5 w-5 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">

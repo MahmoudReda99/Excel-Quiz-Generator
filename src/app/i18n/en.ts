@@ -148,6 +148,18 @@ export const en = {
     error: 'Error',
     success: 'Success'
   },
+  search: {
+    placeholder: 'Search question text, choices, explanation, or question number...',
+    quickPlaceholder: 'Quick search questions...',
+    noResults: 'No questions match your search',
+    noResultsDesc: 'Try searching with different keywords or check your spelling',
+    clear: 'Clear search',
+    resultsFound: 'questions found',
+    showing: 'Showing',
+    of: 'of',
+    allQuestions: 'All questions',
+    jumpToQuestion: 'Jump to question'
+  },
   language: {
     arabic: 'العربية',
     english: 'English'
