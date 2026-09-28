@@ -8,7 +8,7 @@ import { ValidationReportComponent } from '../../components/validation-report/va
 import { ColumnDetectorService } from '../../services/column-detector.service';
 import { QuestionBuilderService } from '../../services/question-builder.service';
 import { ValidatorService } from '../../services/validator.service';
-import { QuizStateService } from '../../services/quiz-state.service';
+import { QuizStateService, ConflictingQuestionGroup } from '../../services/quiz-state.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { ColumnMapping, ExcelData, SheetInfo, ValidationResult } from '../../models/excel.model';
 import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
@@ -109,10 +109,14 @@ import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
           [totalCount]="allQuestions.length"
           [duplicatesClearedMessage]="duplicatesClearedMessage"
           [canRestoreDuplicates]="canRestoreDuplicates"
+          [conflictGroups]="conflictGroups"
+          [resolvedConflictCount]="resolvedConflictCount"
           (fixMapping)="showManualMapping = true"
           (skipInvalid)="onSkipInvalid()"
           (clearDuplicates)="onClearDuplicates()"
           (restoreDuplicates)="onRestoreDuplicates()"
+          (resolveConflict)="onResolveConflict($event)"
+          (resolveAllConflictsByMajority)="onResolveAllConflictsByMajority()"
           (studyMode)="onStudyMode()"
           (generateQuiz)="onGenerateQuiz()">
         </app-validation-report>
@@ -157,6 +161,11 @@ export class AnalysisComponent implements OnInit {
   validationResult: ValidationResult = { validCount: 0, issues: [], isValid: false };
   duplicateCount = 0;
   duplicatesClearedMessage = '';
+  conflictGroups: ConflictingQuestionGroup[] = [];
+
+  get resolvedConflictCount(): number {
+    return this.conflictGroups.filter(g => g.isResolved).length;
+  }
 
   get canRestoreDuplicates(): boolean {
     return this.backupQuestions.length > this.allQuestions.length;
@@ -223,13 +232,7 @@ export class AnalysisComponent implements OnInit {
 
     this.allQuestions = combinedQuestions;
     this.backupQuestions = [];
-    this.previewQuestions = this.allQuestions.slice(0, 3);
-    this.validationResult = this.validator.validate(this.allQuestions);
-    this.duplicateCount = this.quizState.getDuplicateCount(this.allQuestions);
-    
-    this.quizState.setQuestions(this.allQuestions);
-    this.quizState.setValidatedQuestions(this.allQuestions);
-    this.quizState.setValidationResult(this.validationResult);
+    this.updateStateAndConflicts();
   }
 
   detectColumns() {
@@ -253,13 +256,30 @@ export class AnalysisComponent implements OnInit {
     if (!this.currentSheet) return;
     this.allQuestions = this.builder.buildQuestions(this.currentSheet, this.mapping);
     this.backupQuestions = [];
+    this.updateStateAndConflicts();
+  }
+
+  private updateStateAndConflicts() {
     this.previewQuestions = this.allQuestions.slice(0, 3);
     this.validationResult = this.validator.validate(this.allQuestions);
     this.duplicateCount = this.quizState.getDuplicateCount(this.allQuestions);
+    this.conflictGroups = this.quizState.getConflictingQuestionGroups(this.allQuestions);
 
     this.quizState.setQuestions(this.allQuestions);
     this.quizState.setValidatedQuestions(this.allQuestions);
     this.quizState.setValidationResult(this.validationResult);
+  }
+
+  onResolveConflict(event: { key: string; chosenAnswer: string | string[] }) {
+    this.quizState.unifyQuestionAnswer(event.key, event.chosenAnswer);
+    this.allQuestions = this.quizState.validatedQuestions$.value;
+    this.updateStateAndConflicts();
+  }
+
+  onResolveAllConflictsByMajority() {
+    this.quizState.unifyAllConflictsByMajority();
+    this.allQuestions = this.quizState.validatedQuestions$.value;
+    this.updateStateAndConflicts();
   }
 
   onClearDuplicates() {
@@ -271,13 +291,7 @@ export class AnalysisComponent implements OnInit {
     const removedCount = beforeCount - deduplicated.length;
 
     this.allQuestions = deduplicated;
-    this.previewQuestions = this.allQuestions.slice(0, 3);
-    this.validationResult = this.validator.validate(this.allQuestions);
-    this.duplicateCount = 0;
-
-    this.quizState.setQuestions(this.allQuestions);
-    this.quizState.setValidatedQuestions(this.allQuestions);
-    this.quizState.setValidationResult(this.validationResult);
+    this.updateStateAndConflicts();
 
     this.duplicatesClearedMessage = `تمت إزالة ${removedCount} سؤال مكرر بنجاح، وتم الاحتفاظ بنسخة واحدة فريدة من كل سؤال (${this.allQuestions.length} سؤال متبقي).`;
   }
@@ -288,27 +302,14 @@ export class AnalysisComponent implements OnInit {
     this.backupQuestions = [];
     this.quizState.setBackupQuestions(null);
 
-    this.previewQuestions = this.allQuestions.slice(0, 3);
-    this.validationResult = this.validator.validate(this.allQuestions);
-    this.duplicateCount = this.quizState.getDuplicateCount(this.allQuestions);
-
-    this.quizState.setQuestions(this.allQuestions);
-    this.quizState.setValidatedQuestions(this.allQuestions);
-    this.quizState.setValidationResult(this.validationResult);
-
+    this.updateStateAndConflicts();
     this.duplicatesClearedMessage = '';
   }
 
   onSkipInvalid() {
     const invalidIndices = new Set(this.validationResult.issues.map(i => i.questionIndex));
     this.allQuestions = this.allQuestions.filter((_, idx) => !invalidIndices.has(idx));
-    this.previewQuestions = this.allQuestions.slice(0, 3);
-    this.validationResult = this.validator.validate(this.allQuestions);
-    this.duplicateCount = this.quizState.getDuplicateCount(this.allQuestions);
-    
-    this.quizState.setQuestions(this.allQuestions);
-    this.quizState.setValidatedQuestions(this.allQuestions);
-    this.quizState.setValidationResult(this.validationResult);
+    this.updateStateAndConflicts();
   }
 
   onStudyMode() {

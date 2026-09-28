@@ -68,7 +68,14 @@ export const en = {
     duplicatesCleared: 'Duplicates cleared successfully, keeping one copy of each question',
     restoreDuplicates: 'Undo & Restore Duplicates',
     duplicatesRestored: 'All duplicate questions restored successfully',
-    duplicateDesc: 'Identical questions detected. You can remove duplicates to keep only one copy of each question.'
+    duplicateDesc: 'Identical questions detected. You can remove duplicates to keep only one copy of each question.',
+    conflictsFound: 'Conflicting Answers in Duplicates',
+    conflictsDesc: 'Duplicate questions with different correct answers were detected across files. Please select the verified answer to unify across all copies before starting.',
+    unifyAllMajority: 'Auto-unify all by majority',
+    selectUnifiedAnswer: 'Select verified correct answer to unify:',
+    unifiedSuccess: 'Answer unified successfully for all copies of this question',
+    allConflictsResolved: '✓ All conflicting question answers resolved successfully',
+    conflictsRemaining: 'Action required: select correct answer'
   },
   settings: {
     title: 'Quiz Settings',

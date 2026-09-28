@@ -2,13 +2,15 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { ValidationResult } from '../../models/excel.model';
+import { ConflictingQuestionGroup } from '../../services/quiz-state.service';
+import { QuizChoice } from '../../models/quiz.model';
 
 @Component({
   selector: 'app-validation-report',
   standalone: true,
   imports: [CommonModule, TranslatePipe],
   template: `
-    <div class="bg-white shadow-sm border border-gray-200 rounded-2xl p-6 space-y-4">
+    <div class="bg-white shadow-sm border border-gray-200 rounded-2xl p-6 space-y-5">
       <h3 class="text-lg font-extrabold text-gray-900 flex items-center gap-2">
         <span>📊</span> {{ 'validation.title' | translate }}
       </h3>
@@ -58,8 +60,124 @@ import { ValidationResult } from '../../models/excel.model';
         </button>
       </div>
 
+      <!-- Conflicting Answers in Duplicates Resolution Card -->
+      <div *ngIf="conflictGroups && conflictGroups.length > 0" class="bg-amber-50/70 border-2 border-amber-300 rounded-2xl p-5 space-y-4 shadow-sm">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-amber-200 pb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xl">⚠️</span>
+              <h4 class="font-black text-amber-950 text-base">
+                {{ 'validation.conflictsFound' | translate }} ({{ conflictGroups.length }})
+              </h4>
+            </div>
+            <p class="text-xs text-amber-900 mt-1 font-medium leading-relaxed">
+              {{ 'validation.conflictsDesc' | translate }}
+            </p>
+          </div>
 
+          <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <span class="text-xs font-black px-3 py-1.5 rounded-xl border shadow-xs"
+                  [ngClass]="resolvedConflictCount === conflictGroups.length ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-amber-200/90 text-amber-950 border-amber-300'">
+              {{ resolvedConflictCount === conflictGroups.length ? ('validation.allConflictsResolved' | translate) : ('تم توحيد ' + resolvedConflictCount + ' من ' + conflictGroups.length) }}
+            </span>
+            <button
+              *ngIf="resolvedConflictCount < conflictGroups.length"
+              type="button"
+              (click)="resolveAllConflictsByMajority.emit()"
+              class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-sm transition-all flex items-center gap-1.5 whitespace-nowrap">
+              <span>⚡</span>
+              <span>{{ 'validation.unifyAllMajority' | translate }}</span>
+            </button>
+          </div>
+        </div>
 
+        <!-- List of Conflict Question Groups -->
+        <div class="space-y-4 max-h-[460px] overflow-y-auto pr-1">
+          <div *ngFor="let group of conflictGroups; let idx = index" 
+               class="bg-white rounded-xl border-2 p-4 space-y-3 shadow-xs transition-all"
+               [ngClass]="group.isResolved ? 'border-emerald-400 bg-emerald-50/10' : 'border-amber-300'">
+            
+            <div class="flex items-start justify-between gap-2">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="bg-gray-100 text-gray-800 text-[11px] font-extrabold px-2.5 py-0.5 rounded-lg border border-gray-200">
+                    سؤال مكرر #{{ idx + 1 }}
+                  </span>
+                  <span *ngIf="group.isResolved" class="bg-emerald-100 text-emerald-900 text-[11px] font-extrabold px-2.5 py-0.5 rounded-lg border border-emerald-300 flex items-center gap-1">
+                    <span>✓</span> {{ 'validation.unifiedSuccess' | translate }}
+                  </span>
+                  <span *ngIf="!group.isResolved" class="bg-amber-100 text-amber-900 text-[11px] font-extrabold px-2.5 py-0.5 rounded-lg border border-amber-300">
+                    ⚠️ {{ 'validation.conflictsRemaining' | translate }}
+                  </span>
+                </div>
+                <p class="font-extrabold text-gray-950 text-sm leading-relaxed pt-1">
+                  {{ group.questionText }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Choice Selection Grid -->
+            <div class="space-y-2 pt-1 border-t border-gray-100">
+              <span class="text-xs font-bold text-gray-700 block">
+                {{ 'validation.selectUnifiedAnswer' | translate }}
+              </span>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  *ngFor="let ans of group.conflictingAnswers"
+                  type="button"
+                  (click)="onSelectAnswer(group.key, ans.answer)"
+                  class="text-start border-2 rounded-xl p-3 flex items-center justify-between gap-2 transition-all w-full"
+                  [ngClass]="isAnswerSelected(group, ans.answer) ? 'border-emerald-500 bg-emerald-50 shadow-sm ring-1 ring-emerald-400' : 'border-gray-200 hover:border-amber-400 hover:bg-amber-50/40 bg-white'">
+                  
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs font-black flex-shrink-0"
+                         [ngClass]="isAnswerSelected(group, ans.answer) ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 text-gray-400 bg-white'">
+                      <span *ngIf="isAnswerSelected(group, ans.answer)">✓</span>
+                    </div>
+                    <div class="truncate">
+                      <span class="font-extrabold text-xs" [ngClass]="isAnswerSelected(group, ans.answer) ? 'text-emerald-950' : 'text-gray-900'">
+                        {{ ans.sampleLabel ? '(' + ans.sampleLabel + ') ' : '' }}{{ ans.sampleChoiceText || ans.answer }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg flex-shrink-0 whitespace-nowrap"
+                        [ngClass]="isAnswerSelected(group, ans.answer) ? 'bg-emerald-200 text-emerald-900' : 'bg-gray-100 text-gray-600'">
+                    {{ ans.count }} ملفات
+                  </span>
+                </button>
+              </div>
+
+              <!-- Other choices if available -->
+              <div *ngIf="getOtherChoices(group).length > 0" class="pt-2">
+                <details class="text-xs text-gray-600">
+                  <summary class="font-bold text-gray-700 cursor-pointer hover:text-primary-600 select-none py-1">
+                    🔍 خيارات أخرى لهذا السؤال ({{ getOtherChoices(group).length }})
+                  </summary>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                    <button
+                      *ngFor="let choice of getOtherChoices(group)"
+                      type="button"
+                      (click)="onSelectAnswer(group.key, choice.id)"
+                      class="text-start border-2 rounded-xl p-2.5 flex items-center justify-between gap-2 transition-all w-full"
+                      [ngClass]="isAnswerSelected(group, choice.id) ? 'border-emerald-500 bg-emerald-50 shadow-sm ring-1 ring-emerald-400' : 'border-gray-200 hover:border-gray-300 bg-white'">
+                      <div class="flex items-center gap-2 truncate">
+                        <span class="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center text-[10px] font-bold bg-gray-50 flex-shrink-0">
+                          {{ choice.label || choice.id }}
+                        </span>
+                        <span class="font-bold text-xs truncate">{{ choice.text }}</span>
+                      </div>
+                    </button>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Issues List -->
       <div *ngIf="validationResult.issues && validationResult.issues.length > 0" class="flex items-center space-x-2 rtl:space-x-reverse text-amber-800 bg-amber-50 p-3.5 rounded-xl border border-amber-200 font-semibold text-sm">
         <svg class="h-5 w-5 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -124,10 +242,39 @@ export class ValidationReportComponent {
   @Input() totalCount: number = 0;
   @Input() duplicatesClearedMessage: string = '';
   @Input() canRestoreDuplicates: boolean = false;
+  @Input() conflictGroups: ConflictingQuestionGroup[] = [];
+  @Input() resolvedConflictCount: number = 0;
+
   @Output() fixMapping = new EventEmitter<void>();
   @Output() skipInvalid = new EventEmitter<void>();
   @Output() clearDuplicates = new EventEmitter<void>();
   @Output() restoreDuplicates = new EventEmitter<void>();
   @Output() studyMode = new EventEmitter<void>();
   @Output() generateQuiz = new EventEmitter<void>();
+  @Output() resolveConflict = new EventEmitter<{ key: string; chosenAnswer: string | string[] }>();
+  @Output() resolveAllConflictsByMajority = new EventEmitter<void>();
+
+  isAnswerSelected(group: ConflictingQuestionGroup, ans: string | string[]): boolean {
+    if (!group.resolvedAnswer) return false;
+    const a = group.resolvedAnswer;
+    const b = ans;
+    if (a === b) return true;
+    const normA = Array.isArray(a)
+      ? a.map(x => String(x || '').trim().toUpperCase()).sort().join(',')
+      : String(a || '').trim().toUpperCase();
+    const normB = Array.isArray(b)
+      ? b.map(x => String(x || '').trim().toUpperCase()).sort().join(',')
+      : String(b || '').trim().toUpperCase();
+    return normA === normB;
+  }
+
+  onSelectAnswer(key: string, chosenAnswer: string | string[]): void {
+    this.resolveConflict.emit({ key, chosenAnswer });
+  }
+
+  getOtherChoices(group: ConflictingQuestionGroup): QuizChoice[] {
+    if (!group.choices || group.choices.length === 0) return [];
+    const conflictKeys = new Set(group.conflictingAnswers.map(a => a.answerKey));
+    return group.choices.filter(c => !conflictKeys.has(c.id.toUpperCase()));
+  }
 }

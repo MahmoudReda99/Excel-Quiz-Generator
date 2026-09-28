@@ -1,9 +1,27 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { ExcelData, ColumnMapping, DetectionResult, ValidationResult } from '../models/excel.model';
-import { QuizQuestion, QuizState, QuizConfig, QuizResult } from '../models/quiz.model';
+import { QuizQuestion, QuizChoice, QuizState, QuizConfig, QuizResult } from '../models/quiz.model';
 import { ScorerService } from './scorer.service';
 import { AnswerNormalizerService } from './answer-normalizer.service';
+
+export interface ConflictingAnswerDetail {
+  answer: string | string[];
+  answerKey: string;
+  count: number;
+  sampleChoiceText?: string;
+  sampleLabel?: string;
+}
+
+export interface ConflictingQuestionGroup {
+  key: string;
+  questionText: string;
+  questions: QuizQuestion[];
+  conflictingAnswers: ConflictingAnswerDetail[];
+  choices: QuizChoice[];
+  resolvedAnswer: string | string[] | null;
+  isResolved: boolean;
+}
 
 @Injectable({
   providedIn: 'root'
@@ -97,6 +115,168 @@ export class QuizStateService {
       }
     }
     return dupCount;
+  }
+
+  answersAreEqual(a: string | string[] | null | undefined, b: string | string[] | null | undefined): boolean {
+    if (a === b) return true;
+    if (a === null || a === undefined || b === null || b === undefined) return false;
+    const normA = Array.isArray(a)
+      ? a.map(x => String(x || '').trim().toUpperCase()).sort().join(',')
+      : String(a || '').trim().toUpperCase();
+    const normB = Array.isArray(b)
+      ? b.map(x => String(x || '').trim().toUpperCase()).sort().join(',')
+      : String(b || '').trim().toUpperCase();
+    return normA === normB;
+  }
+
+  getConflictingQuestionGroups(questionsList?: QuizQuestion[]): ConflictingQuestionGroup[] {
+    const questions = questionsList || this.validatedQuestions$.value;
+    if (!questions || questions.length <= 1) return [];
+
+    const groups = new Map<string, QuizQuestion[]>();
+    for (const q of questions) {
+      const key = this.getQuestionKey(q);
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)!.push(q);
+    }
+
+    const conflictGroups: ConflictingQuestionGroup[] = [];
+
+    for (const [key, qList] of groups.entries()) {
+      if (qList.length <= 1) continue;
+
+      const answerCounts = new Map<string, { answer: string | string[]; count: number }>();
+      for (const q of qList) {
+        const normKey = Array.isArray(q.correctAnswer)
+          ? q.correctAnswer.map(x => String(x || '').trim().toUpperCase()).sort().join(',')
+          : String(q.correctAnswer || '').trim().toUpperCase();
+
+        if (!answerCounts.has(normKey)) {
+          answerCounts.set(normKey, { answer: q.correctAnswer, count: 0 });
+        }
+        answerCounts.get(normKey)!.count++;
+      }
+
+      // If there are different answers among duplicate questions
+      if (answerCounts.size > 1) {
+        // Collect best/most complete choices across all duplicate instances
+        let bestChoices: QuizChoice[] = [];
+        for (const q of qList) {
+          if (q.choices && q.choices.length > bestChoices.length) {
+            bestChoices = q.choices;
+          }
+        }
+
+        const conflictingAnswers: ConflictingAnswerDetail[] = [];
+        for (const [normKey, item] of answerCounts.entries()) {
+          let sampleText = '';
+          let sampleLabel = '';
+          if (typeof item.answer === 'string') {
+            const matchedChoice = bestChoices.find(c => c.id === item.answer || c.label === item.answer);
+            if (matchedChoice) {
+              sampleText = matchedChoice.text;
+              sampleLabel = matchedChoice.label || matchedChoice.id;
+            } else {
+              sampleLabel = item.answer;
+              sampleText = item.answer;
+            }
+          } else if (Array.isArray(item.answer)) {
+            sampleLabel = item.answer.join(', ');
+            const texts = item.answer.map(ans => {
+              const mc = bestChoices.find(c => c.id === ans || c.label === ans);
+              return mc ? `${mc.label || mc.id}: ${mc.text}` : ans;
+            });
+            sampleText = texts.join(' + ');
+          }
+
+          conflictingAnswers.push({
+            answer: item.answer,
+            answerKey: normKey,
+            count: item.count,
+            sampleChoiceText: sampleText,
+            sampleLabel: sampleLabel
+          });
+        }
+
+        // Check if currently resolved
+        const firstAns = qList[0].correctAnswer;
+        const allSame = qList.every(q => this.answersAreEqual(q.correctAnswer, firstAns));
+
+        conflictGroups.push({
+          key,
+          questionText: qList[0].text,
+          questions: qList,
+          conflictingAnswers,
+          choices: bestChoices,
+          resolvedAnswer: allSame ? firstAns : null,
+          isResolved: allSame
+        });
+      }
+    }
+
+    return conflictGroups;
+  }
+
+  unifyQuestionAnswer(questionKey: string, chosenAnswer: string | string[]): void {
+    // 1. Update validatedQuestions$
+    const updatedValidated = this.validatedQuestions$.value.map(q => {
+      if (this.getQuestionKey(q) === questionKey) {
+        return { ...q, correctAnswer: chosenAnswer };
+      }
+      return q;
+    });
+    this.setValidatedQuestions(updatedValidated);
+
+    // 2. Update questions$
+    const updatedQuestions = this.questions$.value.map(q => {
+      if (this.getQuestionKey(q) === questionKey) {
+        return { ...q, correctAnswer: chosenAnswer };
+      }
+      return q;
+    });
+    this.setQuestions(updatedQuestions);
+
+    // 3. Update backup questions if present
+    if (this.backupBeforeDeduplication) {
+      this.backupBeforeDeduplication = this.backupBeforeDeduplication.map(q => {
+        if (this.getQuestionKey(q) === questionKey) {
+          return { ...q, correctAnswer: chosenAnswer };
+        }
+        return q;
+      });
+    }
+
+    // 4. Update quizState if active
+    const currentState = this.quizState$.value;
+    if (currentState && currentState.questions && currentState.questions.length > 0) {
+      const updatedStateQ = currentState.questions.map(q => {
+        if (this.getQuestionKey(q) === questionKey) {
+          return { ...q, correctAnswer: chosenAnswer };
+        }
+        return q;
+      });
+      this.quizState$.next({
+        ...currentState,
+        questions: updatedStateQ
+      });
+    }
+  }
+
+  unifyAllConflictsByMajority(): number {
+    const conflicts = this.getConflictingQuestionGroups();
+    let resolvedCount = 0;
+    for (const group of conflicts) {
+      if (group.conflictingAnswers.length > 0) {
+        // Find answer with maximum count
+        const sorted = [...group.conflictingAnswers].sort((a, b) => b.count - a.count);
+        const majorityAnswer = sorted[0].answer;
+        this.unifyQuestionAnswer(group.key, majorityAnswer);
+        resolvedCount++;
+      }
+    }
+    return resolvedCount;
   }
 
   private backupBeforeDeduplication: QuizQuestion[] | null = null;
