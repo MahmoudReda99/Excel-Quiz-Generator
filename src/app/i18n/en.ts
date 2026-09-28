@@ -167,6 +167,13 @@ export const en = {
     allQuestions: 'All questions',
     jumpToQuestion: 'Jump to question'
   },
+  pwa: {
+    updateAvailable: 'A new version of the app is available!',
+    updateDesc: 'New updates and features were published. Click Update Now to apply them.',
+    updateNow: 'Update Now',
+    updating: 'Updating...',
+    dismiss: 'Later'
+  },
   language: {
     arabic: 'العربية',
     english: 'English'

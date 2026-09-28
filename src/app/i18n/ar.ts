@@ -167,6 +167,13 @@ export const ar = {
     allQuestions: 'جميع الأسئلة',
     jumpToQuestion: 'الانتقال السريع للسؤال'
   },
+  pwa: {
+    updateAvailable: 'يتوفر إصدار وتحديث جديد للمنصة!',
+    updateDesc: 'تم نشر تحديثات وميزات جديدة. اضغط على تحديث الآن لتطبيقها فوراً.',
+    updateNow: 'تحديث الآن',
+    updating: 'جاري التحديث...',
+    dismiss: 'لاحقاً'
+  },
   language: {
     arabic: 'العربية',
     english: 'English'
