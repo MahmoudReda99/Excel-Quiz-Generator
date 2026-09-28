@@ -44,22 +44,6 @@ import { QuizChoice } from '../../models/quiz.model';
         </div>
       </div>
 
-      <!-- Success Notification when Duplicates Cleared with Undo Option -->
-      <div *ngIf="duplicatesClearedMessage" class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-emerald-900 bg-emerald-100/70 p-4 rounded-xl border border-emerald-300 font-semibold text-sm shadow-sm">
-        <div class="flex items-center space-x-2 rtl:space-x-reverse">
-          <span class="text-xl flex-shrink-0">✅</span>
-          <span>{{ duplicatesClearedMessage }}</span>
-        </div>
-        <button 
-          *ngIf="canRestoreDuplicates" 
-          type="button" 
-          (click)="restoreDuplicates.emit()"
-          class="px-3.5 py-2 bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-300 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap">
-          <span>↩️</span>
-          <span>{{ 'validation.restoreDuplicates' | translate }}</span>
-        </button>
-      </div>
-
       <!-- Conflicting Answers in Duplicates Resolution Card -->
       <div *ngIf="conflictGroups && conflictGroups.length > 0" class="bg-amber-50/70 border-2 border-amber-300 rounded-2xl p-5 space-y-4 shadow-sm">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-amber-200 pb-3">
@@ -240,7 +224,6 @@ export class ValidationReportComponent {
   @Input() validationResult: ValidationResult = { validCount: 0, issues: [], isValid: true };
   @Input() duplicateCount: number = 0;
   @Input() totalCount: number = 0;
-  @Input() duplicatesClearedMessage: string = '';
   @Input() canRestoreDuplicates: boolean = false;
   @Input() conflictGroups: ConflictingQuestionGroup[] = [];
   @Input() resolvedConflictCount: number = 0;

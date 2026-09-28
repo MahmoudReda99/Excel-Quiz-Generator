@@ -107,7 +107,6 @@ import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
           [validationResult]="validationResult"
           [duplicateCount]="duplicateCount"
           [totalCount]="allQuestions.length"
-          [duplicatesClearedMessage]="duplicatesClearedMessage"
           [canRestoreDuplicates]="canRestoreDuplicates"
           [conflictGroups]="conflictGroups"
           [resolvedConflictCount]="resolvedConflictCount"
@@ -160,7 +159,6 @@ export class AnalysisComponent implements OnInit {
   previewQuestions: QuizQuestion[] = [];
   validationResult: ValidationResult = { validCount: 0, issues: [], isValid: false };
   duplicateCount = 0;
-  duplicatesClearedMessage = '';
   conflictGroups: ConflictingQuestionGroup[] = [];
 
   get resolvedConflictCount(): number {
@@ -193,7 +191,6 @@ export class AnalysisComponent implements OnInit {
   }
 
   onSheetChange() {
-    this.duplicatesClearedMessage = '';
     this.backupQuestions = [];
     this.loadSheetData();
   }
@@ -283,17 +280,12 @@ export class AnalysisComponent implements OnInit {
   }
 
   onClearDuplicates() {
-    const beforeCount = this.allQuestions.length;
     this.backupQuestions = [...this.allQuestions];
     this.quizState.setBackupQuestions(this.backupQuestions);
     
     const deduplicated = this.quizState.deduplicateQuestions(this.allQuestions);
-    const removedCount = beforeCount - deduplicated.length;
-
     this.allQuestions = deduplicated;
     this.updateStateAndConflicts();
-
-    this.duplicatesClearedMessage = `تمت إزالة ${removedCount} سؤال مكرر بنجاح، وتم الاحتفاظ بنسخة واحدة فريدة من كل سؤال (${this.allQuestions.length} سؤال متبقي).`;
   }
 
   onRestoreDuplicates() {
@@ -303,7 +295,6 @@ export class AnalysisComponent implements OnInit {
     this.quizState.setBackupQuestions(null);
 
     this.updateStateAndConflicts();
-    this.duplicatesClearedMessage = '';
   }
 
   onSkipInvalid() {
