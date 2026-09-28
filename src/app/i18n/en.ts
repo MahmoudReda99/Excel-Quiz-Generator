@@ -167,6 +167,15 @@ export const en = {
     allQuestions: 'All questions',
     jumpToQuestion: 'Jump to question'
   },
+  passwordModal: {
+    title: 'Password Protected File',
+    desc: 'This file is encrypted and password-protected. Please enter the password to decrypt and load questions:',
+    placeholder: 'Enter password here...',
+    unlock: 'Unlock & Analyze',
+    unlocking: 'Decrypting & Analyzing...',
+    invalidPassword: 'Incorrect password, please check and try again.',
+    cancel: 'Cancel'
+  },
   pwa: {
     updateAvailable: 'A new version of the app is available!',
     updateDesc: 'New updates and features were published. Click Update Now to apply them.',

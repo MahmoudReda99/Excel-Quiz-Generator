@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import * as XLSX from 'xlsx';
 import { ExcelData, SheetInfo, UploadedFileInfo } from '../models/excel.model';
+import { ExcelDecryptorService } from './excel-decryptor.service';
 
 @Injectable({
   providedIn: 'root'
@@ -13,9 +14,15 @@ export class ExcelParserService {
     'correct', 'answer', 'إجابة', 'اجابة', 'option', 'خيار', 'score', 'difficulty'
   ];
 
-  async readFile(file: File): Promise<ExcelData> {
+  constructor(private decryptor: ExcelDecryptorService) {}
+
+  async readFile(file: File, password?: string): Promise<ExcelData> {
     const buffer = await this.readFileBuffer(file);
-    return this.readWorkbookBuffer(file.name, file.size, buffer);
+    return this.readWorkbookBuffer(file.name, file.size, buffer, password);
+  }
+
+  isEncrypted(buffer: ArrayBuffer): boolean {
+    return this.decryptor.isEncrypted(buffer);
   }
 
   isLookupSheet(sheetName: string, headers: string[] = [], rowCount: number = 0): boolean {
@@ -45,9 +52,47 @@ export class ExcelParserService {
     return false;
   }
 
-  readWorkbookBuffer(fileName: string, fileSize: number, buffer: ArrayBuffer): ExcelData {
-    const data = new Uint8Array(buffer);
-    const workbook = XLSX.read(data, { type: 'array' });
+  readWorkbookBuffer(fileName: string, fileSize: number, buffer: ArrayBuffer, password?: string): ExcelData {
+    let workbook: XLSX.WorkBook;
+
+    try {
+      if (password) {
+        if (fileName.toLowerCase().endsWith('.xls') && this.decryptor.isEncrypted(buffer)) {
+          const decrypted = this.decryptor.decryptBiff8(buffer, password);
+          workbook = XLSX.read(new Uint8Array(decrypted), { type: 'array' });
+        } else {
+          workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', password });
+        }
+      } else {
+        if (fileName.toLowerCase().endsWith('.xls') && this.decryptor.isEncrypted(buffer)) {
+          const err = new Error('PASSWORD_REQUIRED');
+          (err as any).isPasswordRequired = true;
+          throw err;
+        }
+        workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+      }
+    } catch (err: any) {
+      const msg = String(err?.message || err || '');
+      if (
+        err?.isPasswordRequired ||
+        msg === 'PASSWORD_REQUIRED' ||
+        msg.includes('Encryption Flags/AlgID mismatch') ||
+        msg.includes('password') ||
+        msg.includes('Encrypted') ||
+        msg.includes('protected')
+      ) {
+        if (!password) {
+          const passErr = new Error('PASSWORD_REQUIRED');
+          (passErr as any).isPasswordRequired = true;
+          throw passErr;
+        } else {
+          const wrongErr = new Error('INCORRECT_PASSWORD');
+          (wrongErr as any).isIncorrectPassword = true;
+          throw wrongErr;
+        }
+      }
+      throw err;
+    }
 
     const sheets: SheetInfo[] = workbook.SheetNames.map((sheetName, index) => {
       const sheetData = this.getSheetData(workbook, index);
