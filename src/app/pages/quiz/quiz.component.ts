@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -134,22 +134,32 @@ import { HighlightPipe } from '../../pipes/highlight.pipe';
         (click)="$event.stopPropagation()">
         <!-- Search Input Header -->
         <div class="p-4 border-b border-gray-200 bg-gray-50/70 flex items-center gap-3">
-          <span class="text-xl text-primary-600">🔍</span>
+          <span class="text-xl text-primary-600 flex-shrink-0">🔍</span>
           <input
             #modalSearchInput
             type="text"
             [(ngModel)]="modalSearchQuery"
             (ngModelChange)="onModalSearchChange()"
+            (keydown.escape)="closeSearchModal()"
             [placeholder]="'search.placeholder' | translate"
             class="w-full bg-transparent border-none focus:outline-none text-base font-bold text-gray-900 placeholder:text-gray-400 placeholder:font-normal"
           />
           <button
             *ngIf="modalSearchQuery"
+            type="button"
             (click)="modalSearchQuery = ''; onModalSearchChange()"
-            class="p-1 text-gray-400 hover:text-gray-700 font-bold rounded-lg hover:bg-gray-200">
+            class="p-1 text-gray-400 hover:text-gray-700 font-bold rounded-lg hover:bg-gray-200 transition-colors flex-shrink-0"
+            title="Clear">
             ✕
           </button>
-          <kbd class="px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-500 font-mono shadow-sm">ESC</kbd>
+          <button
+            type="button"
+            (click)="closeSearchModal()"
+            class="px-2.5 py-1 bg-white hover:bg-gray-100 active:bg-gray-200 border border-gray-300 hover:border-gray-400 rounded-lg text-xs text-gray-600 font-mono font-bold shadow-sm cursor-pointer transition-all flex items-center gap-1 flex-shrink-0 select-none"
+            title="Close (ESC)">
+            <span class="text-xs">✕</span>
+            <span>ESC</span>
+          </button>
         </div>
 
         <!-- Matching Questions List -->
@@ -189,6 +199,7 @@ export class QuizPageComponent implements OnInit, OnDestroy {
   hasTimer: boolean = false;
   
   // Search Modal State
+  @ViewChild('modalSearchInput') modalSearchInput?: ElementRef<HTMLInputElement>;
   isSearchModalOpen: boolean = false;
   modalSearchQuery: string = '';
   modalSearchResults: SearchMatchResult[] = [];
@@ -272,6 +283,9 @@ export class QuizPageComponent implements OnInit, OnDestroy {
     this.isSearchModalOpen = true;
     this.modalSearchQuery = '';
     this.onModalSearchChange();
+    setTimeout(() => {
+      this.modalSearchInput?.nativeElement?.focus();
+    }, 50);
   }
 
   closeSearchModal() {
@@ -367,7 +381,8 @@ export class QuizPageComponent implements OnInit, OnDestroy {
     }
 
     // Escape to close search modal
-    if (event.key === 'Escape' && this.isSearchModalOpen) {
+    if ((event.key === 'Escape' || event.key === 'Esc' || event.keyCode === 27) && this.isSearchModalOpen) {
+      event.preventDefault();
       this.closeSearchModal();
       return;
     }
