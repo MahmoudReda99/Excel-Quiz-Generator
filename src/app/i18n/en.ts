@@ -102,6 +102,13 @@ export const en = {
     allQuestions: 'All',
     answered: 'Answered',
     unanswered: 'Unanswered',
+    pending: 'Pending Review',
+    pendingQuestions: 'Pending Questions',
+    flagForReview: 'Flag for Review',
+    unflag: 'Remove Flag',
+    pendingWarning: 'Warning: You have questions flagged for review or unanswered!',
+    pendingConfirmSubmit: 'You have {pending} pending question(s) and {unanswered} unanswered question(s). Are you sure you want to submit now?',
+    reviewPending: 'Review Pending',
     current: 'Current',
     finishQuiz: 'Finish Quiz'
   },

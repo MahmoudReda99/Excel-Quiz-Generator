@@ -41,6 +41,16 @@ import { QuestionSearchService } from '../../services/question-search.service';
           [class.text-gray-600]="activeFilter !== 'all'">
           {{ 'quiz.allQuestions' | translate }} ({{ questions.length }})
         </button>
+
+        <button 
+          (click)="activeFilter = 'pending'"
+          class="flex-1 py-1.5 px-2.5 rounded-lg transition-all min-w-[60px]"
+          [class.bg-white]="activeFilter === 'pending'"
+          [class.shadow-sm]="activeFilter === 'pending'"
+          [class.text-amber-800]="activeFilter === 'pending'"
+          [class.text-gray-600]="activeFilter !== 'pending'">
+          🚩 {{ 'quiz.pending' | translate }} ({{ pendingCount }})
+        </button>
         
         <button 
           (click)="activeFilter = 'correct'"
@@ -88,6 +98,7 @@ import { QuestionSearchService } from '../../services/question-search.service';
             (click)="navigate.emit(i)"
             [ngClass]="getQuestionClass(q, i)">
             <span>{{ i + 1 }}</span>
+            <span *ngIf="q.isPending" class="absolute -top-1.5 -end-1.5 text-xs drop-shadow-sm pointer-events-none">🚩</span>
           </button>
         </div>
 
@@ -101,6 +112,10 @@ import { QuestionSearchService } from '../../services/question-search.service';
         <div class="flex items-center gap-1.5 font-bold">
           <span class="w-3.5 h-3.5 rounded-full bg-primary-600 ring-2 ring-primary-300"></span>
           <span>{{ 'quiz.current' | translate }}</span>
+        </div>
+        <div class="flex items-center gap-1.5 font-bold">
+          <span>🚩</span>
+          <span class="text-amber-800">{{ 'quiz.pending' | translate }}</span>
         </div>
         <div class="flex items-center gap-1.5 font-bold">
           <span class="w-3.5 h-3.5 rounded-full bg-emerald-600"></span>
@@ -124,7 +139,7 @@ export class QuestionNavigatorComponent implements OnChanges {
   @Output() navigate = new EventEmitter<number>();
 
   searchQuery: string = '';
-  activeFilter: 'all' | 'correct' | 'wrong' | 'unanswered' = 'all';
+  activeFilter: 'all' | 'pending' | 'correct' | 'wrong' | 'unanswered' = 'all';
 
   constructor(
     private normalizer: AnswerNormalizerService,
@@ -163,6 +178,10 @@ export class QuestionNavigatorComponent implements OnChanges {
     return !this.isCorrect(q);
   }
 
+  get pendingCount(): number {
+    return this.questions.filter(q => !!q.isPending).length;
+  }
+
   get correctCount(): number {
     return this.questions.filter(q => this.isCorrect(q)).length;
   }
@@ -181,6 +200,7 @@ export class QuestionNavigatorComponent implements OnChanges {
 
   shouldShowQuestion(index: number, q: QuizQuestion): boolean {
     // 1. Status Filter Check
+    if (this.activeFilter === 'pending' && !q.isPending) return false;
     if (this.activeFilter === 'correct' && !this.isCorrect(q)) return false;
     if (this.activeFilter === 'wrong' && !this.isWrong(q)) return false;
     if (this.activeFilter === 'unanswered' && this.isSubmitted(q)) return false;
@@ -197,7 +217,8 @@ export class QuestionNavigatorComponent implements OnChanges {
     const isCurrent = this.currentIndex === index;
     const isCorr = this.isCorrect(q);
     const isWr = this.isWrong(q);
-    const isPending = this.hasPendingSelections(q);
+    const isFlagged = !!q.isPending;
+    const hasUnconfirmedMulti = this.hasPendingSelections(q);
 
     const base = 'h-10 rounded-xl font-extrabold text-sm flex items-center justify-center transition-all duration-150 relative select-none cursor-pointer ';
 
@@ -209,6 +230,9 @@ export class QuestionNavigatorComponent implements OnChanges {
       if (isWr) {
         return base + ring + 'bg-rose-600 text-white hover:bg-rose-700';
       }
+      if (isFlagged) {
+        return base + ring + 'bg-amber-500 text-white hover:bg-amber-600';
+      }
       return base + ring + 'bg-primary-600 text-white hover:bg-primary-700';
     }
 
@@ -218,7 +242,10 @@ export class QuestionNavigatorComponent implements OnChanges {
     if (isWr) {
       return base + 'bg-rose-600 text-white hover:bg-rose-700';
     }
-    if (isPending) {
+    if (isFlagged) {
+      return base + 'bg-amber-100 text-amber-950 border-2 border-amber-400 hover:bg-amber-200 shadow-sm';
+    }
+    if (hasUnconfirmedMulti) {
       return base + 'bg-primary-100 text-primary-800 border-2 border-primary-300 hover:bg-primary-200';
     }
 

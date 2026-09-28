@@ -243,6 +243,31 @@ export class QuizStateService {
     }
   }
 
+  togglePending(questionIndex: number): void {
+    const state = this.quizState$.value;
+    const questions = [...state.questions];
+    if (questionIndex >= 0 && questionIndex < questions.length) {
+      const currentPending = !!questions[questionIndex].isPending;
+      questions[questionIndex] = {
+        ...questions[questionIndex],
+        isPending: !currentPending
+      };
+      this.quizState$.next({ ...state, questions });
+    }
+  }
+
+  setPending(questionIndex: number, isPending: boolean): void {
+    const state = this.quizState$.value;
+    const questions = [...state.questions];
+    if (questionIndex >= 0 && questionIndex < questions.length) {
+      questions[questionIndex] = {
+        ...questions[questionIndex],
+        isPending
+      };
+      this.quizState$.next({ ...state, questions });
+    }
+  }
+
   goToQuestion(index: number): void {
     const state = this.quizState$.value;
     if (index >= 0 && index < state.questions.length) {

@@ -59,7 +59,8 @@ import { HighlightPipe } from '../../pipes/highlight.pipe';
           [question]="currentQuestion"
           [questionNumber]="currentIndex + 1"
           [showResult]="showFeedback"
-          (answerChanged)="onAnswer($event)">
+          (answerChanged)="onAnswer($event)"
+          (togglePending)="onTogglePending()">
         </app-quiz-question>
 
         <!-- Bottom Action Buttons -->
@@ -93,13 +94,18 @@ import { HighlightPipe } from '../../pipes/highlight.pipe';
 
       <!-- Question Navigator Section (Placed UNDER Question Card on ALL screens) -->
       <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-200 mt-8 space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div class="flex items-center justify-between pb-3 border-b border-gray-100 flex-wrap gap-2">
           <h3 class="font-bold text-gray-900 text-base flex items-center gap-2">
             <span>📋</span> {{ 'quiz.navigatorTitle' | translate }}
           </h3>
-          <span class="text-xs font-bold text-primary-700 bg-primary-50 px-3 py-1 rounded-full">
-            {{ answeredCount }}/{{ quizState.questions.length }} {{ 'quiz.answered' | translate }}
-          </span>
+          <div class="flex items-center gap-2">
+            <span *ngIf="pendingCount > 0" class="text-xs font-bold text-amber-900 bg-amber-100 border border-amber-300 px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
+              🚩 {{ pendingCount }} {{ 'quiz.pending' | translate }}
+            </span>
+            <span class="text-xs font-bold text-primary-700 bg-primary-50 px-3 py-1 rounded-full">
+              {{ answeredCount }}/{{ quizState.questions.length }} {{ 'quiz.answered' | translate }}
+            </span>
+          </div>
         </div>
 
         <app-question-navigator
@@ -253,6 +259,15 @@ export class QuizPageComponent implements OnInit, OnDestroy {
     }).length;
   }
 
+  get pendingCount(): number {
+    if (!this.quizState || !this.quizState.questions) return 0;
+    return this.quizState.questions.filter((q: any) => !!q.isPending).length;
+  }
+
+  onTogglePending() {
+    this.quizStateService.togglePending(this.currentIndex);
+  }
+
   openSearchModal() {
     this.isSearchModalOpen = true;
     this.modalSearchQuery = '';
@@ -304,8 +319,26 @@ export class QuizPageComponent implements OnInit, OnDestroy {
   }
 
   onSubmit() {
-    if (confirm('Are you sure you want to submit the quiz?')) {
-      this.submit();
+    const total = this.quizState?.questions?.length || 0;
+    const unanswered = total - this.answeredCount;
+    const pending = this.pendingCount;
+
+    if (pending > 0 || unanswered > 0) {
+      const parts = [];
+      if (pending > 0) {
+        parts.push(`🚩 ${pending} سؤال مؤجل للمراجعة (Flagged/Pending)`);
+      }
+      if (unanswered > 0) {
+        parts.push(`⚠️ ${unanswered} سؤال غير مجاب (Unanswered)`);
+      }
+      const msg = `تنبيه قبل التسليم:\n\nلديك:\n${parts.join('\n')}\n\nهل أنت متأكد من إنهاء وتسليم الاختبار الآن؟`;
+      if (confirm(msg)) {
+        this.submit();
+      }
+    } else {
+      if (confirm('هل أنت متأكد من تسليم الاختبار الآن؟\nAre you sure you want to submit the quiz?')) {
+        this.submit();
+      }
     }
   }
 
@@ -340,6 +373,17 @@ export class QuizPageComponent implements OnInit, OnDestroy {
     }
 
     if (this.isSearchModalOpen) return;
+
+    // Ignore single key navigation/flag if user is in an input or textarea
+    const targetTag = (event.target as HTMLElement)?.tagName?.toLowerCase();
+    if (targetTag === 'input' || targetTag === 'textarea') return;
+
+    // Toggle Flag / Pending with 'F' or 'P'
+    if (event.key.toLowerCase() === 'f' || event.key.toLowerCase() === 'p') {
+      event.preventDefault();
+      this.onTogglePending();
+      return;
+    }
 
     if (event.key === 'ArrowRight') {
       this.nextQuestion();

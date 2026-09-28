@@ -102,6 +102,13 @@ export const ar = {
     allQuestions: 'الكل',
     answered: 'تمت الإجابة',
     unanswered: 'لم تتم الإجابة',
+    pending: 'مؤجل للمراجعة',
+    pendingQuestions: 'الأسئلة المؤجلة',
+    flagForReview: 'تأجيل للمراجعة',
+    unflag: 'إلغاء التأجيل',
+    pendingWarning: 'تنبيه: لديك أسئلة مؤجلة للمراجعة أو غير مجابة!',
+    pendingConfirmSubmit: 'لديك {pending} سؤال مؤجل للمراجعة و {unanswered} سؤال غير مجاب. هل أنت متأكد من تسليم الاختبار الآن؟',
+    reviewPending: 'مراجعة المؤجل',
     current: 'السؤال الحالي',
     finishQuiz: 'تسليم الاختبار'
   },

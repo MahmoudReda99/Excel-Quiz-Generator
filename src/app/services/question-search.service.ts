@@ -99,7 +99,7 @@ export class QuestionSearchService {
   filterQuestions(
     questions: QuizQuestion[],
     query: string,
-    filter: 'all' | 'correct' | 'wrong' | 'unanswered' = 'all'
+    filter: 'all' | 'correct' | 'wrong' | 'unanswered' | 'pending' = 'all'
   ): SearchMatchResult[] {
     if (!questions || questions.length === 0) return [];
 
@@ -117,10 +117,12 @@ export class QuestionSearchService {
         const isCorrect = isAnswered && this.normalizer.isCorrect(q.userAnswer, q.correctAnswer, q.type);
         const isWrong = isAnswered && !isCorrect;
         const isUnanswered = !isAnswered;
+        const isPending = !!q.isPending;
 
         if (filter === 'correct' && !isCorrect) continue;
         if (filter === 'wrong' && !isWrong) continue;
         if (filter === 'unanswered' && !isUnanswered) continue;
+        if (filter === 'pending' && !isPending) continue;
       }
 
       // Query check

@@ -11,19 +11,43 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   template: `
     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 md:p-8" *ngIf="question">
       <!-- Badge Header -->
-      <div class="flex items-center justify-between mb-4">
-        <span class="px-3 py-1 bg-primary-100 text-primary-800 text-xs font-bold rounded-full uppercase tracking-wider">
-          {{ question.type === 'single' ? ('mapping.single' | translate) : ('mapping.multiple' | translate) }}
-        </span>
-        
-        <span *ngIf="shouldShowAnswerDetails" class="text-sm font-semibold">
-          <span *ngIf="isUserAnswerCorrect" class="text-emerald-600 flex items-center gap-1 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 font-bold">
-            ✓ {{ 'review.correct' | translate }}
+      <div class="flex items-center justify-between mb-4 gap-3 w-full">
+        <!-- Question Type & Correct/Incorrect Status -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="px-3 py-1 bg-primary-100 text-primary-800 text-xs font-bold rounded-full uppercase tracking-wider">
+            {{ question.type === 'single' ? ('mapping.single' | translate) : ('mapping.multiple' | translate) }}
           </span>
-          <span *ngIf="!isUserAnswerCorrect && question.userAnswer" class="text-rose-600 flex items-center gap-1 bg-rose-50 px-3 py-1 rounded-full border border-rose-200 font-bold">
-            ✗ {{ 'review.incorrect' | translate }}
+
+          <span *ngIf="shouldShowAnswerDetails" class="text-sm font-semibold">
+            <span *ngIf="isUserAnswerCorrect" class="text-emerald-600 flex items-center gap-1 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 font-bold">
+              ✓ {{ 'review.correct' | translate }}
+            </span>
+            <span *ngIf="!isUserAnswerCorrect && question.userAnswer" class="text-rose-600 flex items-center gap-1 bg-rose-50 px-3 py-1 rounded-full border border-rose-200 font-bold">
+              ✗ {{ 'review.incorrect' | translate }}
+            </span>
           </span>
-        </span>
+        </div>
+
+        <!-- Flag / Pending Button (Opposite side) -->
+        <button 
+          type="button"
+          (click)="onTogglePending()"
+          class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm cursor-pointer select-none flex-shrink-0"
+          [class.bg-amber-100]="question.isPending"
+          [class.text-amber-900]="question.isPending"
+          [class.border-amber-300]="question.isPending"
+          [class.ring-2]="question.isPending"
+          [class.ring-amber-300]="question.isPending"
+          [class.bg-gray-50]="!question.isPending"
+          [class.text-gray-600]="!question.isPending"
+          [class.border-gray-200]="!question.isPending"
+          [class.hover:bg-amber-50]="!question.isPending"
+          [class.hover:text-amber-800]="!question.isPending"
+          [title]="(question.isPending ? ('quiz.unflag' | translate) : ('quiz.flagForReview' | translate)) + ' (F)'">
+          <span>{{ question.isPending ? '🚩' : '🏳️' }}</span>
+          <span>{{ (question.isPending ? 'quiz.pending' : 'quiz.flagForReview') | translate }}</span>
+          <kbd class="hidden sm:inline-block px-1 bg-white/70 border border-gray-200 rounded text-[10px] font-mono text-gray-500">F</kbd>
+        </button>
       </div>
 
       <!-- Question Text -->
@@ -153,10 +177,15 @@ export class QuizQuestionComponent implements OnChanges {
   @Input() questionNumber!: number;
   @Input() showResult: boolean = false;
   @Output() answerChanged = new EventEmitter<string | string[]>();
+  @Output() togglePending = new EventEmitter<void>();
 
   selectedChoiceId: string | null = null;
   selectedChoiceIds: string[] = [];
   isMultiSubmitted: boolean = false;
+
+  onTogglePending() {
+    this.togglePending.emit();
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['question'] && this.question) {
