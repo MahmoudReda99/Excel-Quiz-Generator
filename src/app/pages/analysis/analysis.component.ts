@@ -221,8 +221,12 @@ export class AnalysisComponent implements OnInit {
 
     validQuestionSheets.forEach(sheet => {
       const sheetResult = this.detector.detect(sheet);
-      if (sheetResult.mapping.questionCol !== null && sheetResult.mapping.correctAnswerCol !== null) {
-        const qList = this.builder.buildQuestions(sheet, sheetResult.mapping);
+      const effectiveMapping = (sheetResult.mapping.questionCol !== null && sheetResult.mapping.correctAnswerCol !== null)
+        ? sheetResult.mapping
+        : this.mapping;
+
+      if (effectiveMapping.questionCol !== null && effectiveMapping.correctAnswerCol !== null) {
+        const qList = this.builder.buildQuestions(sheet, effectiveMapping);
         combinedQuestions = combinedQuestions.concat(qList);
       }
     });
@@ -250,6 +254,10 @@ export class AnalysisComponent implements OnInit {
   }
 
   processQuestions() {
+    if (this.isCombinedMode) {
+      this.processAllSheetsCombined();
+      return;
+    }
     if (!this.currentSheet) return;
     this.allQuestions = this.builder.buildQuestions(this.currentSheet, this.mapping);
     this.backupQuestions = [];

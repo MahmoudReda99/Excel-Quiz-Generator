@@ -115,8 +115,9 @@ export class QuestionBuilderService {
         }
       }
 
+      const sheetKey = sheet.index !== undefined ? sheet.index : (sheet.name ? sheet.name.replace(/\s+/g, '_') : '0');
       questions.push({
-        id: `q_${rowIndex}`,
+        id: `q_${sheetKey}_${rowIndex}`,
         text: String(qText).trim(),
         choices,
         correctAnswer: finalCorrectAnswer,

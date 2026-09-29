@@ -170,7 +170,7 @@ export class QuestionNavigatorComponent implements OnChanges {
 
   isCorrect(q: QuizQuestion): boolean {
     if (!this.isSubmitted(q)) return false;
-    return this.normalizer.isCorrect(q.userAnswer, q.correctAnswer, q.type);
+    return this.normalizer.isCorrect(q.userAnswer, q.correctAnswer, q.type, q.choices);
   }
 
   isWrong(q: QuizQuestion): boolean {

@@ -186,6 +186,12 @@ import { HighlightPipe } from '../../pipes/highlight.pipe';
 
         <!-- Footer -->
         <div class="p-3 bg-gray-50 border-t border-gray-200 text-xs font-semibold text-gray-500 flex items-center justify-between">
+          <span>{{ 'search.showing' | translate }} {{ modalSearchResults.length }} {{ 'search.resultsFound' | translate }}</span>
+          <span>اضغط على أي سؤال للانتقال إليه مباشرة</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Submit Confirmation Modal Overlay -->
     <div 
       *ngIf="isSubmitConfirmModalOpen"
@@ -240,13 +246,13 @@ import { HighlightPipe } from '../../pipes/highlight.pipe';
           <button 
             type="button"
             (click)="closeSubmitModal()"
-            class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-sm transition-all">
+            class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-sm transition-all cursor-pointer">
             متابعة الحل (إلغاء)
           </button>
           <button 
             type="button"
             (click)="confirmSubmitQuiz()"
-            class="btn-success px-6 py-2.5 text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+            class="btn-success px-6 py-2.5 text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer">
             <span>✓</span>
             <span>تسليم وعرض النتيجة</span>
           </button>

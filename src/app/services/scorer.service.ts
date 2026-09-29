@@ -17,7 +17,7 @@ export class ScorerService {
       if (q.userAnswer === null || q.userAnswer === undefined || (Array.isArray(q.userAnswer) && q.userAnswer.length === 0)) {
         unansweredCount++;
       } else {
-        const isCorrect = this.normalizer.isCorrect(q.userAnswer, q.correctAnswer, q.type);
+        const isCorrect = this.normalizer.isCorrect(q.userAnswer, q.correctAnswer, q.type, q.choices);
         if (isCorrect) {
           correctCount++;
         } else {

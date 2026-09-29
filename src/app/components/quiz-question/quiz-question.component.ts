@@ -1,8 +1,9 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { QuizQuestion } from '../../models/quiz.model';
 import { TranslatePipe } from '../../pipes/translate.pipe';
+import { AnswerNormalizerService } from '../../services/answer-normalizer.service';
 
 @Component({
   selector: 'app-quiz-question',
@@ -209,32 +210,21 @@ export class QuizQuestionComponent implements OnChanges {
     }
   }
 
+  private normalizer = inject(AnswerNormalizerService);
+
   getChoiceLabel(index: number): string {
     return String.fromCharCode(65 + index);
   }
 
   isChoiceSelected(id: string): boolean {
-    const cleanId = String(id).trim().toUpperCase();
     if (this.question.type === 'multiple') {
-      return this.selectedChoiceIds.some(s => String(s).trim().toUpperCase() === cleanId);
+      return this.normalizer.isUserSelectedChoice(id, this.selectedChoiceIds, this.question.choices);
     }
-    return String(this.selectedChoiceId || '').trim().toUpperCase() === cleanId;
+    return this.normalizer.isUserSelectedChoice(id, this.selectedChoiceId, this.question.choices);
   }
 
   isChoiceCorrect(choiceId: string): boolean {
-    if (!this.question.correctAnswer) return false;
-    const cleanId = String(choiceId).trim().toUpperCase();
-    const choice = this.question.choices?.find(c => c.id === choiceId);
-    const cleanLabel = choice?.label ? String(choice.label).trim().toUpperCase() : null;
-
-    if (Array.isArray(this.question.correctAnswer)) {
-      return this.question.correctAnswer.some(c => {
-        const norm = String(c).trim().toUpperCase();
-        return norm === cleanId || (cleanLabel !== null && norm === cleanLabel);
-      });
-    }
-    const normCorrect = String(this.question.correctAnswer).trim().toUpperCase();
-    return normCorrect === cleanId || (cleanLabel !== null && normCorrect === cleanLabel);
+    return this.normalizer.isCorrectChoice(choiceId, this.question.correctAnswer, this.question.choices);
   }
 
   get shouldShowAnswerDetails(): boolean {
@@ -251,14 +241,7 @@ export class QuizQuestionComponent implements OnChanges {
 
   get isUserAnswerCorrect(): boolean {
     if (!this.question.userAnswer) return false;
-    if (this.question.type === 'single') {
-      return this.isChoiceCorrect(this.selectedChoiceId || '');
-    }
-    if (Array.isArray(this.question.correctAnswer)) {
-      if (this.selectedChoiceIds.length !== this.question.correctAnswer.length) return false;
-      return this.selectedChoiceIds.every(id => this.isChoiceCorrect(id));
-    }
-    return this.selectedChoiceIds.length === 1 && this.isChoiceCorrect(this.selectedChoiceIds[0]);
+    return this.normalizer.isCorrect(this.question.userAnswer, this.question.correctAnswer, this.question.type, this.question.choices);
   }
 
   onChoiceClick(id: string) {

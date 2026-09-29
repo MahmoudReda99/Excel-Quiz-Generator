@@ -6,7 +6,8 @@ import { QuizChoice } from '../models/quiz.model';
 })
 export class AnswerNormalizerService {
   private arabicLetterMap: Record<string, string> = {
-    'أ': 'A', 'ا': 'A', 'ب': 'B', 'ج': 'C', 'د': 'D',
+    'أ': 'A', 'ا': 'A', 'إ': 'A', 'آ': 'A', 'ٱ': 'A',
+    'ب': 'B', 'ج': 'C', 'د': 'D',
     'هـ': 'E', 'ه': 'E', 'و': 'F', 'ز': 'G', 'ح': 'H',
     '1': 'A', '2': 'B', '3': 'C', '4': 'D', '5': 'E', '6': 'F', '7': 'G', '8': 'H',
     '١': 'A', '٢': 'B', '٣': 'C', '٤': 'D', '٥': 'E', '٦': 'F', '٧': 'G', '٨': 'H'
@@ -72,25 +73,51 @@ export class AnswerNormalizerService {
     return this.matchSingleAnswer(strAnswer, choices);
   }
 
-  private matchSingleAnswer(answer: string, choices: QuizChoice[]): string {
-    let str = String(answer).trim();
+  private cleanText(str: string): string {
+    return String(str || '')
+      .normalize('NFKC')
+      .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+      .replace(/[أإآٱ]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/[ىي]/g, 'ي')
+      .replace(/ؤ/g, 'و')
+      .replace(/ئ/g, 'ي')
+      .replace(/[؟?.,:;!\-_()[\]{}"'«»"“”\/\\*#~^%&+=><]/g, ' ')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  toCanonicalId(val: any, choices?: QuizChoice[]): string {
+    if (val === null || val === undefined) return '';
+    let str = String(val).trim();
     if (!str) return '';
 
-    // Strip wrapping parentheses, brackets, colons, or periods (e.g. "(A)", "[ب]", "أ.")
-    str = str.replace(/^[\(\[\{]/, '').replace(/[\)\]\}\.\:\-]$/, '').trim();
+    // Strip outer punctuation/brackets
+    str = str.replace(/^[\(\[\{\<\«\'\"\s]+/, '').replace(/[\)\]\}\>\»\'\"\.\:\-\s]+$/, '').trim();
 
-    // True/False mappings:
     const lower = str.toLowerCase();
-    if (['true', 'صح', 'صحيح', 'ص', 'yes', 'نعم'].includes(lower)) {
-      const choiceA = choices.find(c => c.id === 'A');
-      if (choiceA) return 'A';
-    }
-    if (['false', 'خطأ', 'خاطئ', 'خ', 'no', 'لا'].includes(lower)) {
-      const choiceB = choices.find(c => c.id === 'B');
-      if (choiceB) return 'B';
+
+    // True/False mappings
+    if (['true', 'صح', 'صحيح', 'صواب', 'ص', 'yes', 'نعم', 't', 'v'].includes(lower) || lower.startsWith('صح ') || lower.startsWith('صحيح ')) {
+      if (choices && choices.length > 0) {
+        const choiceA = choices.find(c => c.id.toUpperCase() === 'A' || this.cleanText(c.text).includes('صح') || this.cleanText(c.text).includes('true'));
+        if (choiceA) return choiceA.id.toUpperCase();
+        return choices[0].id.toUpperCase();
+      }
+      return 'A';
     }
 
-    // If single letter A-H
+    if (['false', 'خطأ', 'خاطئ', 'خاطئة', 'خاطئه', 'غلط', 'خ', 'no', 'لا', 'f', 'x'].includes(lower) || lower.startsWith('خطأ ') || lower.startsWith('خاطئ ')) {
+      if (choices && choices.length > 0) {
+        const choiceB = choices.find(c => c.id.toUpperCase() === 'B' || this.cleanText(c.text).includes('خط') || this.cleanText(c.text).includes('false'));
+        if (choiceB) return choiceB.id.toUpperCase();
+        if (choices.length > 1) return choices[1].id.toUpperCase();
+      }
+      return 'B';
+    }
+
+    // Direct Letter A-H
     if (/^[A-H]$/i.test(str)) {
       return str.toUpperCase();
     }
@@ -98,8 +125,10 @@ export class AnswerNormalizerService {
     // Arabic letter & numeral mapping
     if (this.arabicLetterMap[str]) {
       const mappedLetter = this.arabicLetterMap[str];
-      const matched = choices.find(c => c.label === mappedLetter || c.id === mappedLetter);
-      if (matched) return matched.id;
+      if (choices) {
+        const matched = choices.find(c => c.label?.toUpperCase() === mappedLetter || c.id.toUpperCase() === mappedLetter);
+        if (matched) return matched.id.toUpperCase();
+      }
       return mappedLetter;
     }
 
@@ -107,54 +136,111 @@ export class AnswerNormalizerService {
     const num = parseInt(str, 10);
     if (!isNaN(num) && num >= 1 && num <= 8) {
       const label = String.fromCharCode(64 + num); // 1 -> A, 2 -> B...
-      const matched = choices.find(c => c.label === label || c.id === label);
-      if (matched) return matched.id;
-      if (choices[num - 1]) return choices[num - 1].id;
+      if (choices) {
+        const matched = choices.find(c => c.label?.toUpperCase() === label || c.id.toUpperCase() === label);
+        if (matched) return matched.id.toUpperCase();
+        if (choices[num - 1]) return choices[num - 1].id.toUpperCase();
+      }
       return label;
     }
 
-    // "Option 1", "Option A", "الخيار 1", "الإجابة الأول", etc.
-    const optionMatch = str.match(/(?:option|choice|الخيار|الاختيار|الإجابة)\s*([a-h1-8]|أ|ب|ج|د)/i);
+    // Option 1, Option A, الخيار 1, الخيار أ, etc.
+    const optionMatch = str.match(/(?:option|choice|الخيار|الاختيار|الإجابة|الاجابة|البديل)\s*([a-h1-8]|أ|إ|ا|ب|ج|د|هـ|ه|و|ز|ح)/i);
     if (optionMatch) {
-      const val = optionMatch[1];
-      if (/^[a-h]$/i.test(val)) return val.toUpperCase();
-      const n = parseInt(val, 10);
-      if (!isNaN(n) && choices[n - 1]) return choices[n - 1].id;
-      if (this.arabicLetterMap[val]) return this.arabicLetterMap[val];
+      const valMatch = optionMatch[1];
+      if (/^[a-h]$/i.test(valMatch)) return valMatch.toUpperCase();
+      const n = parseInt(valMatch, 10);
+      if (!isNaN(n)) {
+        const lbl = String.fromCharCode(64 + n);
+        if (choices && choices[n - 1]) return choices[n - 1].id.toUpperCase();
+        return lbl;
+      }
+      if (this.arabicLetterMap[valMatch]) return this.arabicLetterMap[valMatch];
     }
 
-    // Try matching exact choice text (case-insensitive)
-    const matchedChoice = choices.find(c => c.text.toLowerCase().trim() === str.toLowerCase());
-    if (matchedChoice) {
-      return matchedChoice.id;
+    // Try matching exact or normalized choice text against available choices
+    if (choices && choices.length > 0) {
+      // 1. Exact text match
+      const exactMatch = choices.find(c => c.text.trim().toLowerCase() === str.toLowerCase());
+      if (exactMatch) return exactMatch.id.toUpperCase();
+
+      // 2. Normalized clean text match
+      const cleanedInput = this.cleanText(str);
+      if (cleanedInput) {
+        const cleanMatch = choices.find(c => this.cleanText(c.text) === cleanedInput);
+        if (cleanMatch) return cleanMatch.id.toUpperCase();
+
+        // 3. Substring inclusion if sufficiently long
+        if (cleanedInput.length >= 4) {
+          const subMatch = choices.find(c => {
+            const ct = this.cleanText(c.text);
+            return ct.includes(cleanedInput) || cleanedInput.includes(ct);
+          });
+          if (subMatch) return subMatch.id.toUpperCase();
+        }
+      }
     }
 
-    // Fallback: return trimmed string capitalized if single letter or as-is
-    return str;
+    return str.toUpperCase();
   }
 
-  isCorrect(userAnswer: string | string[] | null, correctAnswer: string | string[], type: 'single' | 'multiple'): boolean {
+  private matchSingleAnswer(answer: string, choices: QuizChoice[]): string {
+    return this.toCanonicalId(answer, choices);
+  }
+
+  isCorrectChoice(choiceId: string, correctAnswer: string | string[] | null | undefined, choices?: QuizChoice[]): boolean {
+    if (!correctAnswer) return false;
+    const canChoiceId = this.toCanonicalId(choiceId, choices);
+
+    if (Array.isArray(correctAnswer)) {
+      return correctAnswer.some(c => this.toCanonicalId(c, choices) === canChoiceId);
+    }
+    return this.toCanonicalId(correctAnswer, choices) === canChoiceId;
+  }
+
+  isUserSelectedChoice(choiceId: string, userAnswer: string | string[] | null | undefined, choices?: QuizChoice[]): boolean {
+    if (!userAnswer) return false;
+    const canChoiceId = this.toCanonicalId(choiceId, choices);
+
+    if (Array.isArray(userAnswer)) {
+      return userAnswer.some(u => this.toCanonicalId(u, choices) === canChoiceId);
+    }
+    return this.toCanonicalId(userAnswer, choices) === canChoiceId;
+  }
+
+  isCorrect(
+    userAnswer: string | string[] | null | undefined,
+    correctAnswer: string | string[] | null | undefined,
+    type: 'single' | 'multiple',
+    choices?: QuizChoice[]
+  ): boolean {
     if (userAnswer === null || userAnswer === undefined) return false;
+    if (correctAnswer === null || correctAnswer === undefined) return false;
 
     if (type === 'single') {
-      if (Array.isArray(userAnswer)) {
-        return userAnswer.length === 1 && userAnswer[0] === correctAnswer;
-      }
+      const uVal = Array.isArray(userAnswer) ? (userAnswer[0] || '') : userAnswer;
+      const canU = this.toCanonicalId(uVal, choices);
+
       if (Array.isArray(correctAnswer)) {
-        return correctAnswer.includes(userAnswer);
+        return correctAnswer.some(c => this.toCanonicalId(c, choices) === canU);
       }
-      return String(userAnswer).trim().toUpperCase() === String(correctAnswer).trim().toUpperCase();
+      return canU === this.toCanonicalId(correctAnswer, choices);
     }
 
     // Multiple choice comparison
-    const uArr = Array.isArray(userAnswer) ? userAnswer : [userAnswer];
-    const cArr = Array.isArray(correctAnswer) ? correctAnswer : [correctAnswer];
+    const uArr = (Array.isArray(userAnswer) ? userAnswer : [userAnswer])
+      .map(x => this.toCanonicalId(x, choices))
+      .filter(Boolean);
+    const cArr = (Array.isArray(correctAnswer) ? correctAnswer : [correctAnswer])
+      .map(x => this.toCanonicalId(x, choices))
+      .filter(Boolean);
 
-    if (uArr.length !== cArr.length) return false;
+    // Remove duplicates
+    const uniqueU = Array.from(new Set(uArr)).sort();
+    const uniqueC = Array.from(new Set(cArr)).sort();
 
-    const normU = uArr.map(x => String(x).trim().toUpperCase()).sort();
-    const normC = cArr.map(x => String(x).trim().toUpperCase()).sort();
+    if (uniqueU.length !== uniqueC.length || uniqueU.length === 0) return false;
 
-    return normU.every((val, index) => val === normC[index]);
+    return uniqueU.every((val, index) => val === uniqueC[index]);
   }
 }

@@ -271,7 +271,7 @@ export class ReviewPageComponent implements OnInit {
       const isAnswered = q.type === 'multiple' 
         ? !!q.isSubmitted 
         : (q.userAnswer !== null && q.userAnswer !== undefined && !(Array.isArray(q.userAnswer) && q.userAnswer.length === 0));
-      return isAnswered && this.normalizer.isCorrect(q.userAnswer, q.correctAnswer, q.type);
+      return isAnswered && this.normalizer.isCorrect(q.userAnswer, q.correctAnswer, q.type, q.choices);
     }).length;
   }
 
@@ -280,7 +280,7 @@ export class ReviewPageComponent implements OnInit {
       const isAnswered = q.type === 'multiple' 
         ? !!q.isSubmitted 
         : (q.userAnswer !== null && q.userAnswer !== undefined && !(Array.isArray(q.userAnswer) && q.userAnswer.length === 0));
-      return isAnswered && !this.normalizer.isCorrect(q.userAnswer, q.correctAnswer, q.type);
+      return isAnswered && !this.normalizer.isCorrect(q.userAnswer, q.correctAnswer, q.type, q.choices);
     }).length;
   }
 
