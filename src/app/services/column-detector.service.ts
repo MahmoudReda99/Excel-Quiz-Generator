@@ -181,15 +181,23 @@ export class ColumnDetectorService {
   private isChoiceHeader(h: string): boolean {
     const norm = this.cleanHeader(h);
     if (this.knownExcludes.some(ex => norm.includes(ex))) return false;
-    if (['نوع الخيار', 'شرح الخيار', 'الخيارات', 'تأكيد الخيار', 'تأكيد الإجابة'].some(ex => norm.includes(ex))) return false;
+    if (['نوع الخيار', 'شرح الخيار', 'الخيارات', 'تأكيد الخيار', 'تأكيد الإجابة', 'نوع السؤال'].some(ex => norm.includes(ex))) return false;
 
-    if (/^option\s+[a-h]/i.test(norm)) return true;
-    if (/^choice\s+[a-h]/i.test(norm)) return true;
-    if (/^الخيار\s*([أبجدa-h1-8]|الأول|الثاني|الثالث|الرابع)/i.test(norm)) return true;
-    if (/^خيار\s*([أبجدa-h1-8]|الأول|الثاني|الثالث|الرابع)/i.test(norm)) return true;
-    if (/^option\s+[1-8]/i.test(norm) || /^choice\s+[1-8]/i.test(norm)) return true;
+    // Single Letter A-H or Arabic Choice Letters (أ، ب، ج، د، هـ، و، ز، ح)
     if (/^[a-h]$/i.test(norm)) return true;
-    if (['الخيار أ', 'الخيار ب', 'الخيار ج', 'الخيار د', 'option a', 'option b', 'option c', 'option d', 'choice a', 'choice b', 'choice c', 'choice d', 'الاختيار الأول', 'الاختيار الثاني', 'الاختيار الثالث', 'الاختيار الرابع', 'الخيار الأول', 'الخيار الثاني', 'الخيار الثالث', 'الخيار الرابع'].some(p => norm.includes(p))) return true;
+    if (/^[أ-ي]$/.test(norm) && ['أ', 'ا', 'ب', 'ج', 'د', 'ه', 'و', 'ز', 'ح'].includes(norm)) return true;
+
+    // (الاختيار / اختيار / الخيار / خيار / البديل / بديل) + (A-H / 1-8 / أ-ي / الأول-السادس)
+    if (/^(?:ال)?(?:اختيار|خيار|بديل)\s*[\(\[]?\s*([أ-يa-h1-8]|الأول|الثاني|الثالث|الرابع|الخامس|السادس|أول|ثاني|ثالث|رابع|خامس|سادس)/i.test(norm)) return true;
+
+    // English Option / Choice / Opt + (Letter A-H or 1-8)
+    if (/^(?:option|choice|opt)\s*[\(\[]?\s*([a-h1-8])/i.test(norm)) return true;
+
+    if (['الخيار أ', 'الخيار ب', 'الخيار ج', 'الخيار د', 'الاختيار أ', 'الاختيار ب', 'الاختيار ج', 'الاختيار د',
+         'اختيار أ', 'اختيار ب', 'اختيار ج', 'اختيار د', 'خيار أ', 'خيار ب', 'خيار ج', 'خيار د',
+         'option a', 'option b', 'option c', 'option d', 'choice a', 'choice b', 'choice c', 'choice d',
+         'الاختيار الأول', 'الاختيار الثاني', 'الاختيار الثالث', 'الاختيار الرابع',
+         'الخيار الأول', 'الخيار الثاني', 'الخيار الثالث', 'الخيار الرابع'].some(p => norm.includes(p))) return true;
     return false;
   }
 
