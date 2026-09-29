@@ -31,7 +31,7 @@ export class QuestionBuilderService {
       if (mapping.choiceCols.length > 0) {
         mapping.choiceCols.forEach((colIdx, i) => {
           const cText = row[colIdx];
-          if (cText !== null && cText !== undefined && String(cText).trim() !== '') {
+          if (cText !== null && cText !== undefined && !this.isDummyChoiceText(String(cText))) {
             const trimmedChoice = String(cText).trim();
             explicitChoicesCount++;
             choicesText.push(trimmedChoice);
@@ -128,6 +128,18 @@ export class QuestionBuilderService {
     });
 
     return questions;
+  }
+
+  private isDummyChoiceText(text: string): boolean {
+    if (!text) return true;
+    const trimmed = text.trim();
+    if (!trimmed) return true;
+    // Pure dashes, hyphens, underscores, dots, slashes, or tildes: e.g. "-", "--", "---", "–", "—", "_", "...", "/"
+    if (/^[\-\u2013\u2014_\.\/\\~،,;]+$/.test(trimmed)) return true;
+    // Common placeholder keywords in unused choice columns
+    const lower = trimmed.toLowerCase();
+    if (['n/a', 'na', 'null', 'none', 'nil', 'لا يوجد', 'فارغ', 'بدون'].includes(lower)) return true;
+    return false;
   }
 
   private isLookupRow(qText: string, explicitChoicesCount: number): boolean {
