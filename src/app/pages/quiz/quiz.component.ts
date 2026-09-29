@@ -186,8 +186,70 @@ import { HighlightPipe } from '../../pipes/highlight.pipe';
 
         <!-- Footer -->
         <div class="p-3 bg-gray-50 border-t border-gray-200 text-xs font-semibold text-gray-500 flex items-center justify-between">
-          <span>{{ 'search.showing' | translate }} {{ modalSearchResults.length }} {{ 'search.resultsFound' | translate }}</span>
-          <span>اضغط على أي سؤال للانتقال إليه مباشرة</span>
+    <!-- Submit Confirmation Modal Overlay -->
+    <div 
+      *ngIf="isSubmitConfirmModalOpen"
+      class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn"
+      (click)="closeSubmitModal()">
+      <div 
+        class="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-lg overflow-hidden flex flex-col p-6 animate-scaleUp space-y-5"
+        (click)="$event.stopPropagation()">
+        
+        <div class="flex items-center gap-3 pb-3 border-b border-gray-100">
+          <span class="text-3xl">📝</span>
+          <div>
+            <h3 class="text-xl font-black text-gray-900">{{ 'quiz.submit' | translate }}</h3>
+            <p class="text-xs text-gray-500 mt-0.5">مراجعة سريعة لحالة الأسئلة قبل إنهاء الاختبار</p>
+          </div>
+        </div>
+
+        <div class="space-y-3 py-2">
+          <!-- Summary chips -->
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-primary-50 border border-primary-100 p-2.5 rounded-xl">
+              <div class="text-xs font-bold text-primary-700">إجمالي الأسئلة</div>
+              <div class="text-lg font-black text-primary-900">{{ quizState?.questions?.length || 0 }}</div>
+            </div>
+            <div class="bg-emerald-50 border border-emerald-100 p-2.5 rounded-xl">
+              <div class="text-xs font-bold text-emerald-700">تمت الإجابة</div>
+              <div class="text-lg font-black text-emerald-900">{{ answeredCount }}</div>
+            </div>
+            <div class="bg-gray-100 border border-gray-200 p-2.5 rounded-xl">
+              <div class="text-xs font-bold text-gray-700">متبقي</div>
+              <div class="text-lg font-black text-gray-900">{{ (quizState?.questions?.length || 0) - answeredCount }}</div>
+            </div>
+          </div>
+
+          <!-- Warnings if pending or unanswered -->
+          <div *ngIf="pendingCount > 0" class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs font-bold flex items-center gap-2">
+            <span>🚩</span>
+            <span>لديك {{ pendingCount }} سؤال مؤجل للمراجعة (Flagged).</span>
+          </div>
+
+          <div *ngIf="(quizState?.questions?.length || 0) - answeredCount > 0" class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-xs font-bold flex items-center gap-2">
+            <span>⚠️</span>
+            <span>لديك {{ (quizState?.questions?.length || 0) - answeredCount }} سؤال لم تتم الإجابة عليه بعد.</span>
+          </div>
+
+          <p class="text-sm font-semibold text-gray-700 text-center pt-2">
+            هل أنت متأكد من رغبتك في تسليم الاختبار الآن وعرض النتيجة والإجابات؟
+          </p>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+          <button 
+            type="button"
+            (click)="closeSubmitModal()"
+            class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-sm transition-all">
+            متابعة الحل (إلغاء)
+          </button>
+          <button 
+            type="button"
+            (click)="confirmSubmitQuiz()"
+            class="btn-success px-6 py-2.5 text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+            <span>✓</span>
+            <span>تسليم وعرض النتيجة</span>
+          </button>
         </div>
       </div>
     </div>
@@ -203,6 +265,9 @@ export class QuizPageComponent implements OnInit, OnDestroy {
   isSearchModalOpen: boolean = false;
   modalSearchQuery: string = '';
   modalSearchResults: SearchMatchResult[] = [];
+
+  // Submit Modal State
+  isSubmitConfirmModalOpen: boolean = false;
 
   private subs: Subscription = new Subscription();
 
@@ -261,12 +326,10 @@ export class QuizPageComponent implements OnInit, OnDestroy {
   get answeredCount(): number {
     if (!this.quizState || !this.quizState.questions) return 0;
     return this.quizState.questions.filter((q: any) => {
-      if (q.type === 'multiple') {
-        return !!q.isSubmitted;
+      if (Array.isArray(q.userAnswer)) {
+        return q.userAnswer.length > 0;
       }
-      return q.userAnswer !== null && 
-             q.userAnswer !== undefined && 
-             !(Array.isArray(q.userAnswer) && q.userAnswer.length === 0);
+      return q.userAnswer !== null && q.userAnswer !== undefined && String(q.userAnswer).trim() !== '';
     }).length;
   }
 
@@ -291,6 +354,19 @@ export class QuizPageComponent implements OnInit, OnDestroy {
   closeSearchModal() {
     this.isSearchModalOpen = false;
     this.modalSearchQuery = '';
+  }
+
+  openSubmitModal() {
+    this.isSubmitConfirmModalOpen = true;
+  }
+
+  closeSubmitModal() {
+    this.isSubmitConfirmModalOpen = false;
+  }
+
+  confirmSubmitQuiz() {
+    this.closeSubmitModal();
+    this.submit();
   }
 
   onModalSearchChange() {
@@ -333,38 +409,22 @@ export class QuizPageComponent implements OnInit, OnDestroy {
   }
 
   onSubmit() {
-    const total = this.quizState?.questions?.length || 0;
-    const unanswered = total - this.answeredCount;
-    const pending = this.pendingCount;
-
-    if (pending > 0 || unanswered > 0) {
-      const parts = [];
-      if (pending > 0) {
-        parts.push(`🚩 ${pending} سؤال مؤجل للمراجعة (Flagged/Pending)`);
-      }
-      if (unanswered > 0) {
-        parts.push(`⚠️ ${unanswered} سؤال غير مجاب (Unanswered)`);
-      }
-      const msg = `تنبيه قبل التسليم:\n\nلديك:\n${parts.join('\n')}\n\nهل أنت متأكد من إنهاء وتسليم الاختبار الآن؟`;
-      if (confirm(msg)) {
-        this.submit();
-      }
-    } else {
-      if (confirm('هل أنت متأكد من تسليم الاختبار الآن؟\nAre you sure you want to submit the quiz?')) {
-        this.submit();
-      }
-    }
+    this.openSubmitModal();
   }
 
   autoSubmit() {
-    alert('Time is up! Submitting your quiz.');
     this.submit();
   }
 
   private submit() {
-    this.timerService.stop();
-    this.quizStateService.submitQuiz();
-    this.router.navigate(['/results']);
+    try {
+      this.timerService.stop();
+      this.quizStateService.submitQuiz();
+      this.router.navigate(['/results']);
+    } catch (e) {
+      console.error('Error submitting quiz:', e);
+      this.router.navigate(['/results']);
+    }
   }
 
   @HostListener('window:keydown', ['$event'])
@@ -380,14 +440,21 @@ export class QuizPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Escape to close search modal
-    if ((event.key === 'Escape' || event.key === 'Esc' || event.keyCode === 27) && this.isSearchModalOpen) {
-      event.preventDefault();
-      this.closeSearchModal();
-      return;
+    // Escape to close modals
+    if ((event.key === 'Escape' || event.key === 'Esc' || event.keyCode === 27)) {
+      if (this.isSearchModalOpen) {
+        event.preventDefault();
+        this.closeSearchModal();
+        return;
+      }
+      if (this.isSubmitConfirmModalOpen) {
+        event.preventDefault();
+        this.closeSubmitModal();
+        return;
+      }
     }
 
-    if (this.isSearchModalOpen) return;
+    if (this.isSearchModalOpen || this.isSubmitConfirmModalOpen) return;
 
     // Ignore single key navigation/flag if user is in an input or textarea
     const targetTag = (event.target as HTMLElement)?.tagName?.toLowerCase();
