@@ -2,6 +2,7 @@ export const en = {
   app: {
     title: 'Interactive Quiz Platform',
     subtitle: 'Generate interactive quizzes from Excel files easily',
+    home: 'Home',
     clearData: 'Clear Data'
   },
   upload: {

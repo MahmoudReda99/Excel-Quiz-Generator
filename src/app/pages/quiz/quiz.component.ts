@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs';
 import { QuizStateService } from '../../services/quiz-state.service';
 import { TimerService } from '../../services/timer.service';
 import { QuestionSearchService, SearchMatchResult } from '../../services/question-search.service';
+import { AppStorageService } from '../../services/app-storage.service';
 import { QuizQuestionComponent } from '../../components/quiz-question/quiz-question.component';
 import { QuestionNavigatorComponent } from '../../components/question-navigator/question-navigator.component';
 import { TimerComponent } from '../../components/timer/timer.component';
@@ -281,10 +282,30 @@ export class QuizPageComponent implements OnInit, OnDestroy {
     private quizStateService: QuizStateService,
     private timerService: TimerService,
     private searchService: QuestionSearchService,
+    private storageService: AppStorageService,
     private router: Router
   ) {}
 
-  ngOnInit() {
+  async ngOnInit() {
+    // If state in memory is empty (e.g. after full browser page reload), restore active session from IndexedDB!
+    const currentState = this.quizStateService.quizState$.value;
+    if (!currentState || !currentState.questions || currentState.questions.length === 0) {
+      try {
+        const restored = await this.storageService.loadActiveSession();
+        if (restored && restored.quizState && restored.quizState.questions && restored.quizState.questions.length > 0) {
+          if (restored.fileName) {
+            this.quizStateService.setActiveFileName(restored.fileName);
+          }
+          this.quizStateService.setQuestions(restored.quizState.questions);
+          this.quizStateService.setValidatedQuestions(restored.quizState.questions);
+          this.quizStateService.quizConfig$.next(restored.quizState.config);
+          this.quizStateService.quizState$.next(restored.quizState);
+        }
+      } catch (err) {
+        console.warn('Could not restore quiz session on refresh:', err);
+      }
+    }
+
     this.subs.add(
       this.quizStateService.quizState$.subscribe(state => {
         if (!state || !state.questions || state.questions.length === 0) {

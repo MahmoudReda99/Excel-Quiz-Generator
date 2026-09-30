@@ -4,6 +4,7 @@ import { ExcelData, ColumnMapping, DetectionResult, ValidationResult } from '../
 import { QuizQuestion, QuizChoice, QuizState, QuizConfig, QuizResult } from '../models/quiz.model';
 import { ScorerService } from './scorer.service';
 import { AnswerNormalizerService } from './answer-normalizer.service';
+import { AppStorageService } from './app-storage.service';
 
 export interface ConflictingAnswerDetail {
   answer: string | string[];
@@ -55,10 +56,30 @@ export class QuizStateService {
   
   public quizState$ = new BehaviorSubject<QuizState>(this.defaultState);
 
+  private lastActiveFileName: string = '';
+
   constructor(
     private scorerService: ScorerService,
-    private normalizer: AnswerNormalizerService
-  ) {}
+    private normalizer: AnswerNormalizerService,
+    private storageService: AppStorageService
+  ) {
+    this.quizState$.subscribe(state => {
+      if (state.status === 'active' && state.questions && state.questions.length > 0) {
+        const fileName = this.excelData$.value?.fileName || this.lastActiveFileName || 'اختبار مخصص';
+        this.lastActiveFileName = fileName;
+        this.storageService.saveActiveSession({
+          id: 'current_active_session',
+          fileName,
+          updatedAt: new Date().toISOString(),
+          quizState: state
+        });
+      }
+    });
+  }
+
+  setActiveFileName(name: string): void {
+    this.lastActiveFileName = name;
+  }
 
   setExcelData(data: ExcelData): void {
     this.excelData$.next(data);
@@ -481,6 +502,7 @@ export class QuizStateService {
     });
     const result = this.scorerService.calculateResult(finalizedQuestions, startTime, endTime);
     this.quizState$.next({ ...state, questions: finalizedQuestions, status: 'submitted', result });
+    this.storageService.clearActiveSession();
   }
 
   retryQuiz(): void {
@@ -564,6 +586,7 @@ export class QuizStateService {
     this.quizConfig$.next(this.defaultConfig);
     this.quizState$.next({ ...this.defaultState });
     this.backupBeforeDeduplication = null;
+    this.storageService.clearActiveSession();
   }
 
   clearData(): void {

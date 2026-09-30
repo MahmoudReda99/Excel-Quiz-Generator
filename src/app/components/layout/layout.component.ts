@@ -50,19 +50,30 @@ import { LanguageSwitchComponent } from '../language-switch/language-switch.comp
         </div>
       </div>
 
-      <header class="bg-white shadow-sm border-b border-gray-200">
+      <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div class="flex items-center gap-3">
             <a routerLink="/" class="flex items-center gap-2.5 text-lg md:text-xl font-black text-primary-600 hover:text-primary-700 transition-colors">
               <img src="assets/logo.png" alt="Quiz Generator Logo" class="w-9 h-9 object-contain flex-shrink-0" />
-              <span>{{ 'app.title' | translate }}</span>
+              <span class="hidden sm:inline">{{ 'app.title' | translate }}</span>
             </a>
           </div>
           
-          <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2 sm:gap-3">
+            <!-- Home Navigation Button / Icon -->
+            <a 
+              routerLink="/" 
+              routerLinkActive="bg-primary-50 text-primary-700 border-primary-200 font-black shadow-xs"
+              [routerLinkActiveOptions]="{ exact: true }"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 text-gray-700 hover:text-primary-600 hover:bg-gray-50 text-xs sm:text-sm font-bold transition-all shadow-2xs"
+              title="{{ 'app.home' | translate }}">
+              <span class="text-base sm:text-lg">🏠</span>
+              <span>{{ 'app.home' | translate }}</span>
+            </a>
+
             <button 
               (click)="clearData()" 
-              class="text-xs text-red-500 hover:text-red-700 px-3 py-1 rounded bg-red-50 hover:bg-red-100 transition-colors">
+              class="text-xs text-red-500 hover:text-red-700 px-3 py-1.5 rounded-xl border border-transparent hover:border-red-100 bg-red-50 hover:bg-red-100 font-bold transition-colors">
               {{ 'app.clearData' | translate }}
             </button>
             <app-language-switch></app-language-switch>

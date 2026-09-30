@@ -3,10 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
+import { FileLibraryComponent } from '../../components/file-library/file-library.component';
 import { ExcelParserService } from '../../services/excel-parser.service';
 import { MarkdownParserService } from '../../services/markdown-parser.service';
 import { PdfParserService } from '../../services/pdf-parser.service';
 import { QuizStateService } from '../../services/quiz-state.service';
+import { AppStorageService } from '../../services/app-storage.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { ExcelData } from '../../models/excel.model';
 
@@ -24,7 +26,7 @@ interface SelectedFileItem {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, FormsModule, FileUploadComponent, TranslatePipe],
+  imports: [CommonModule, FormsModule, FileUploadComponent, FileLibraryComponent, TranslatePipe],
   template: `
     <div class="max-w-3xl mx-auto px-4 py-10 sm:px-6 lg:px-8 flex flex-col items-center">
       <div class="text-center mb-8">
@@ -36,7 +38,7 @@ interface SelectedFileItem {
         </p>
       </div>
 
-      <div class="w-full space-y-6">
+      <div class="w-full space-y-8">
         <!-- Drag & Drop Upload Area -->
         <app-file-upload (filesSelected)="onFilesSelected($event)"></app-file-upload>
         
@@ -111,6 +113,9 @@ interface SelectedFileItem {
         <div *ngIf="errorMessage" class="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-xl font-semibold text-sm">
           {{ errorMessage }}
         </div>
+
+        <!-- Saved Files Library from Browser Storage -->
+        <app-file-library></app-file-library>
       </div>
 
       <!-- Password Prompt Modal -->
@@ -195,6 +200,7 @@ export class HomeComponent {
   private mdParser = inject(MarkdownParserService);
   private pdfParser = inject(PdfParserService);
   private quizState = inject(QuizStateService);
+  private appStorage = inject(AppStorageService);
   private router = inject(Router);
 
   selectedFiles: SelectedFileItem[] = [];
@@ -362,8 +368,24 @@ export class HomeComponent {
         throw new Error('لم يتم العثور على أسئلة أو نصوص قابلة للقراءة في الملف. إذا كان ملف PDF، تأكد أنه يحتوي على نصوص وليس مجرد صور مقصوصة. وإذا كان ملف إكسل، تأكد من وجود بيانات فيه.');
       }
 
-      this.progressMessage = `تم استخراج ${validSheets.length} ورقة. جاري فتح صفحة التحليل...`;
+      this.progressMessage = `تم استخراج ${validSheets.length} ورقة. جاري حفظ الملف في الذاكرة وفتح التحليل...`;
       this.quizState.setExcelData(mergedData);
+
+      // Auto-save each uploaded file in IndexedDB
+      try {
+        if (preparedFiles.length === 1) {
+          const p = preparedFiles[0];
+          await this.appStorage.saveFileRecord(p.file, mergedData);
+        } else {
+          for (const p of preparedFiles) {
+            const singleData = this.buildExcelData([p]);
+            await this.appStorage.saveFileRecord(p.file, singleData);
+          }
+        }
+      } catch (storageErr) {
+        console.warn('Could not auto-save file to IndexedDB:', storageErr);
+      }
+
       const navigated = await this.router.navigate(['/analysis']);
       if (!navigated) {
         throw new Error('تم تحليل الملف، لكن لم يتم فتح صفحة التحليل.');
