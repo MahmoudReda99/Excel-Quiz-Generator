@@ -72,9 +72,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   {{ savedFiles.length }}
                 </span>
               </div>
-              <p class="text-xs text-gray-500 font-medium">
-                محفوظة داخل ذاكرة المتصفح وتعمل 100% بدون إنترنت
-              </p>
             </div>
           </div>
 
