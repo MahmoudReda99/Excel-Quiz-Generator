@@ -133,7 +133,9 @@ export class PdfParserService {
         const x = it.transform[4];
         const w = it.width;
         const raw = this.normalizePresentationForms(it.str);
-        const reversed = raw.split('').reverse().join('');
+        let reversed = raw.split('').reverse().join('');
+        // Re-reverse contiguous ASCII alpha/digit sequences (like 71 -> 17, 5.2 -> 2.5)
+        reversed = reversed.replace(/[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*/g, m => m.split('').reverse().join(''));
         if (lastX !== -1) {
           const gap = lastX - (x + w);
           if (gap > 2) lineStr += ' ';
@@ -147,17 +149,21 @@ export class PdfParserService {
       s = s.replace(/ا\u0654|ا\u0655|ٔا|ٕا/g, m => (m.includes('ٕ') ? 'إ' : 'أ'));
       s = s.replace(/إ/g, 'إ').replace(/أ/g, 'أ').replace(/ىٔ/g, 'ئ').replace(/ئ/g, 'ئ').replace(/ؤ/g, 'ؤ').replace(/مٔو/g, 'مؤ');
       s = s.replace(/إال/g, 'الإ').replace(/أال/g, 'الأ').replace(/اإل/g, 'الإ').replace(/األ/g, 'الأ');
-      s = s.replace(/شٔيرادٕا|شٔيرادا/g, 'إدارية').replace(/رادٕاية|راداية/g, 'إدارية').replace(/رادٕا|رادا/g, 'إدار').replace(/إراد/g, 'إدار').replace(/يراد/g, 'إداري');
+      s = s.replace(/شٔيرادٕا|شٔيرادا/g, 'شؤون إدارية').replace(/رادٕاية|راداية|رادإية/g, 'إدارية').replace(/رادٕا|رادا/g, 'إدار').replace(/إراد/g, 'إدار').replace(/يراد/g, 'إداري');
+      s = s.replace(/إىراد|إىإدار/g, 'إداري').replace(/الإىراد|الإىإدار/g, 'الإداري');
       s = s.replace(/شٔيو/g, 'شؤو').replace(/شٔي/g, 'شي');
       s = s.replace(/نموجذ/g, 'نموذج').replace(/جدلو/g, 'جدول').replace(/للوءا/g, 'للواء').replace(/الخوةذ/g, 'الخوذة');
       s = s.replace(/تاودأ/g, 'أدوات').replace(/تاود/g, 'أدوات').replace(/أنوعا/g, 'أنواع').replace(/انوعا/g, 'أنواع');
       s = s.replace(/([^\s])ة([دذرزو])/g, '$1$2ة');
       s = s.replace(/وحدتا/g, 'وحدات').replace(/مشآت/g, 'منشآت').replace(/منشٓات/g, 'منشآت').replace(/منشٓا/g, 'منشآ');
       s = s.replace(/إجرتاءا|إجرتاء/g, 'إجراءات').replace(/مشتمالت/g, 'مشتملات').replace(/قوتا/g, 'قوات');
-      s = s.replace(/رٔايس|رئييس/g, 'رئيس').replace(/قائٔد|قأيد/g, 'قائد');
-      s = s.replace(/ذخأير|الذخأير/g, 'الذخائر').replace(/خسأير/g, 'خسائر').replace(/وبأي/g, 'وبائي').replace(/روشة/g, 'ورشة');
+      s = s.replace(/رٔايس|رئييس|رٔييس/g, 'رئيس').replace(/قائٔد|قأيد|القأيد/g, 'القائد').replace(/سأيقين/g, 'سائقين');
+      s = s.replace(/ذخأير|الذخأير/g, 'الذخائر').replace(/خسأير|الخسأير/g, 'الخسائر').replace(/وبأي|الوبأيية/g, 'الوبائية').replace(/الوقأيية|الوقأيي/g, 'الوقائية').replace(/خصأيص/g, 'خصائص');
+      s = s.replace(/الخيانار/g, 'الخياران').replace(/اودٔير/g, 'تدوير').replace(/المررو/g, 'المرور').replace(/المخانز/g, 'المخازن');
+      s = s.replace(/إعددا/g, 'إعداد').replace(/أفردا/g, 'أفراد').replace(/المحارو/g, 'المحاور').replace(/الحددو/g, 'الحدود').replace(/الكفاةء/g, 'الكفاءة');
+      s = s.replace(/الأتبادلي/g, 'التبادلي').replace(/الأحفر/g, 'الحفر').replace(/اوإلرادية/g, 'والإدارية');
 
-      if (s.includes('lmth.') || s.includes('file:///') || s.includes('PM 03:') || s.includes('MP 03:')) {
+      if (s.includes('lmth.') || s.includes('file:///') || s.includes('PM 03:') || s.includes('MP 03:') || s.includes('```foe') || s.includes('ملخص الإنجاز') || s.includes('اسم المادة :')) {
         continue;
       }
       pageText += s + '\n';
@@ -329,21 +335,22 @@ export class PdfParserService {
     fixed = fixed.replace(/أطخ\s*[\(\)]\s*([بB])\s*حص\s*[\(\)]\s*([أA])/gi, '\n- ($1) خطأ\n- ($2) صح\n');
 
     // 4. Normalize Answer Key markers
-    fixed = fixed.replace(/([\(\)]?[^\S\r\n]*[أإابجدهوزحa-hA-H][^\S\r\n]*[\(\)]?|حص[^\S\r\n]*[\(\)]?[^\S\r\n]*[أA][^\S\r\n]*[\(\)]?|أطخ[^\S\r\n]*[\(\)]?[^\S\r\n]*[بB][^\S\r\n]*[\(\)]?)[^\S\r\n]*[:\s]*(?:ة\s*حيحصلا|الصحيحة|اإلجابة|الإجابة|الحل)[^\S\r\n]*(?:ة\s*باجلاإ|باجلاإ|الإجابة|اإلجابة|الصحيحة)[:\s]*/gi, '\n**الإجابة:** $1\n');
-    fixed = fixed.replace(/[:\s]*(?:ة\s*حيحصلا|الصحيحة|اإلجابة|الإجابة|الحل)[^\S\r\n]*(?:ة\s*باجلاإ|باجلاإ|الإجابة|اإلجابة|الصحيحة)[:\s]*/gi, '\n**الإجابة:** ');
+    fixed = fixed.replace(/(?:^|\n)[^\S\r\n]*(?:[\(\[]\s*([أإابجدهوزحa-hA-H1-8])\s*[\)\]]|(حص[^\S\r\n]*[\(\[]?[^\S\r\n]*[أA][^\S\r\n]*[\)\]]?)|(أطخ[^\S\r\n]*[\(\[]?[^\S\r\n]*[بB][^\S\r\n]*[\)\]]?))[^\S\r\n]*(?:ة\s*حيحصلا|الصحيحة)?\s*(?:ة\s*باجلاإ|باجلاإ|الإجابة|اإلجابة|الحل)[:\s]*/gi, '\n**الإجابة:** $1$2$3\n');
+    fixed = fixed.replace(/(?:^|\n)[^\S\r\n]*[\u064B-\u065F\u0670]?(?:اإلجابة|الإجابة|الحل)\s*(?:الصحيحة)?[:\s]*/gi, '\n**الإجابة:** ');
+    fixed = fixed.replace(/(?:^|\n)[^\S\r\n]*[\u064B-\u065F\u0670]?(?:ة\s*حيحصلا)?\s*(?:ة\s*باجلاإ|باجلاإ)[:\s]*/gi, '\n**الإجابة:** ');
 
-    // 5. Reversed choice format: ) من 20-55 ممA( or 2-1) منA( -> - (A) من 20-55 مم
-    fixed = fixed.replace(/(?:^|\n)[^\S\r\n]*([^\n\r]+?)[^\S\r\n]*([A-Ha-hأإابجدهوزح])[^\S\r\n]*\([^\S\r\n]*(?=\n|$)/g, (m, p1, p2) => {
-      let cleanText = p1.replace(/[\(\)]/g, ' ').trim();
+    // 5. Reversed choice format: ) من 20-55 ممA( or 2-1) منA( or 37 ) 23مم / ممC( -> - (A) من 20-55 مم
+    fixed = fixed.replace(/(?:^|\n)[^\S\r\n]*(?!\*\*الإجابة:)(?!\*\*|الإجابة|اإلجابة|الحل|السؤال|سؤال)[\u064B-\u065F\u0670]?\)?\s*(.+?)\s*([A-Ha-hأإابجدهوزح])\s*\([^\S\r\n]*(?=\n|$)/g, (m, p1, p2) => {
+      let cleanText = p1.replace(/^\s*[\)\(]\s*/, '').replace(/[\)\(]\s*$/, '').trim();
       return '\n- (' + p2 + ') ' + cleanText;
     });
-    fixed = fixed.replace(/(?:^|\n)[^\S\r\n]*\)[^\S\r\n]*([^\(\)\n\r]+?)[^\S\r\n]*([A-Ha-hأإابجدهوزح])(?=[^\S\r\n]*(?:\n|$))/g, '\n- ($2) $1');
+    fixed = fixed.replace(/(?:^|\n)[^\S\r\n]*(?!\*\*الإجابة:)(?!\*\*|الإجابة|اإلجابة|الحل|السؤال|سؤال)\)\s*([^\(\)\n\r]+?)\s*([A-Ha-hأإابجدهوزح])(?=[^\S\r\n]*(?:\n|$))/g, '\n- ($2) $1');
 
     // 6. Convert trailing labels like `من 2-3 )A(` to `- (A) من 2-3`
-    fixed = fixed.replace(/(?:^|\n)[^\S\r\n]*([^\n\r]+?)[^\S\r\n]*[\(\)][^\S\r\n]*([A-Ha-hأإابجدهوزح])[^\S\r\n]*[\(\)][^\S\r\n]*(?=\n|$)/g, '\n- ($2) $1');
+    fixed = fixed.replace(/(?:^|\n)[^\S\r\n]*(?!\*\*الإجابة:)(?!\*\*|الإجابة|اإلجابة|الحل|السؤال|سؤال)([^\n\r\(\)]+?)\s*[\(\)]\s*([A-Ha-hأإابجدهوزح])\s*[\(\)](?=\n|$)/g, '\n- ($2) $1');
 
     // 7. Convert leading labels like `(A) من 2-3` to `- (A) من 2-3`
-    fixed = fixed.replace(/(?:^|\n)[^\S\r\n]*[\(\[]?[^\S\r\n]*([A-Ha-hأإابجدهوزح])[^\S\r\n]*[\)\]][\(\)]?[^\S\r\n]*(.+)$/gm, '\n- ($1) $2');
+    fixed = fixed.replace(/(?:^|\n)[^\S\r\n]*(?!\*\*الإجابة:)(?!\*\*|الإجابة|اإلجابة|الحل|السؤال|سؤال)[\(\[]?\s*([A-Ha-hأإابجدهوزح])\s*[\)\]][\(\)]?\s*(.+)$/gm, '\n- ($1) $2');
 
     return fixed;
   }

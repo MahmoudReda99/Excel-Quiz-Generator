@@ -88,13 +88,13 @@ export class MarkdownParserService {
     };
 
     const extractRef = (text: string): { clean: string; exp: string | null } => {
-      if (!text.includes('المرجع') && !text.includes('بند') && !text.includes('صفحة') && !text.includes('مخطط') && !text.includes('السند')) {
+      if (!text.includes('المرجع') && !text.includes('بند') && !text.includes('صفحة') && !text.includes('مخطط') && !text.includes('السند') && !text.includes('الخيار') && !text.includes('الخيانار') && !text.includes('صحيح') && !text.includes('مطابق')) {
         return { clean: text, exp: null };
       }
-      const m = text.match(/(?:[—–]\s*[\(\[]?|[\(\[])\s*([^\n\r]*(?:السند|المرجع|ص\s*\d+|بند|صفحة|مخطط)[^\n\r]*)[\)\]]?\s*$/);
+      const m = text.match(/(?:[—–]\s*[\(\[]?|[\(\[]|\"|\.|\s)\s*([^\n\r]*(?:السند|المرجع|ص\s*\d+|ص\d+|بند|صفحة|مخطط|الخيار|الخيانار|مطابق|صحيحان)[^\n\r]*)[\)\]]?\s*$/);
       if (m && m.index !== undefined) {
-        const clean = text.slice(0, m.index).replace(/[—–\-\s]+$/, '').trim();
-        const exp = m[1].replace(/^[—–\-\(\)\[\]\s]+/, '').replace(/[\(\)\[\]\s]+$/, '').trim();
+        const clean = text.slice(0, m.index).replace(/[—–\-\s\"\.\(\)]+$/, '').trim();
+        const exp = m[1].replace(/^[—–\-\(\)\[\]\s\"]+/, '').replace(/[\(\)\[\]\s\"]+$/, '').trim();
         return { clean, exp };
       }
       return { clean: text, exp: null };
@@ -108,7 +108,7 @@ export class MarkdownParserService {
       const normalizedLine = cleanLine.replace(/[\[\]\(\)]?\s*(?:اإلجابة الصحيحة|الإجابة الصحيحة|خيار صحيح|خيار معتمد)\s*[\[\]\(\)]?/g, ' ');
 
       // 1. Single bullet choice line: - (A) ... or (A) ... or (أ) ...
-      const bulletMatch = normalizedLine.match(/^(?:[\s\-\*•]+)?(?:\[[ xX]\]\s*)?(?:\*\*|__|\*)?[\(\)\[\]]?\s*([A-Ha-hأإابجدهوزح1-8])\s*[\.\)\:\-\(\]][\)\(\]]?(?:\*\*|__|\*)?\s+(.+)$/);
+      const bulletMatch = normalizedLine.match(/^(?:[\s\-\*•\u064B-\u065F\u0670]+)?(?:\[[ xX]\]\s*)?(?:\*\*|__|\*)?[\(\)\[\]]?\s*([A-Ha-hأإابجدهوزح1-8])\s*[\.\)\:\-\(\]][\)\(\]]?(?:\*\*|__|\*)?\s+(.+)$/);
       if (bulletMatch) {
         let choiceText = bulletMatch[2].trim();
         choiceText = choiceText.replace(/^\*\*\)?\s*/, '').replace(/\*\*$/, '').replace(/[—\-\s]+$/, '').trim();
@@ -117,8 +117,8 @@ export class MarkdownParserService {
         if (refRes.exp) {
           currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + refRes.exp;
         }
-        if (choiceText === 'حص') choiceText = 'صح';
-        if (choiceText === 'أطخ') choiceText = 'خطأ';
+        if (choiceText.startsWith('صح ') || choiceText === 'صح' || choiceText === 'حص') choiceText = 'صح';
+        if (choiceText.startsWith('خطأ ') || choiceText.startsWith('خطا ') || choiceText === 'خطأ' || choiceText === 'خطا' || choiceText === 'أطخ') choiceText = 'خطأ';
         if (choiceText) return [{ label: bulletMatch[1], text: choiceText }];
       }
 
@@ -131,8 +131,8 @@ export class MarkdownParserService {
         if (refRes.exp) {
           currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + refRes.exp;
         }
-        if (choiceText === 'حص') choiceText = 'صح';
-        if (choiceText === 'أطخ') choiceText = 'خطأ';
+        if (choiceText.startsWith('صح ') || choiceText === 'صح' || choiceText === 'حص') choiceText = 'صح';
+        if (choiceText.startsWith('خطأ ') || choiceText.startsWith('خطا ') || choiceText === 'خطأ' || choiceText === 'خطا' || choiceText === 'أطخ') choiceText = 'خطأ';
         if (choiceText) return [{ label: simpleStartMatch[1], text: choiceText }];
       }
 
@@ -160,8 +160,8 @@ export class MarkdownParserService {
           if (refRes.exp) {
             currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + refRes.exp;
           }
-          if (choiceText === 'حص') choiceText = 'صح';
-          if (choiceText === 'أطخ') choiceText = 'خطأ';
+          if (choiceText.startsWith('صح ') || choiceText === 'صح' || choiceText === 'حص') choiceText = 'صح';
+          if (choiceText.startsWith('خطأ ') || choiceText.startsWith('خطا ') || choiceText === 'خطأ' || choiceText === 'خطا' || choiceText === 'أطخ') choiceText = 'خطأ';
           if (choiceText) {
             choices.push({ label: m.label, text: choiceText });
           }
@@ -171,7 +171,7 @@ export class MarkdownParserService {
       }
 
       // 4. Leading labels: (A) [Text] or (أ) [Text]
-      const leadingPattern = /(?:^|[\s\-\*•]+)(?:\[[ xX]\]\s*)?(?:\*\*|__|\*)?[\(\)\[\]]?\s*([A-Ha-hأإابجدهوزح])\s*[\.\)\:\-\(\]][\)\(\]]?(?:\*\*|__|\*)?\s*/g;
+      const leadingPattern = /(?:^|[\s\-\*•\u064B-\u065F\u0670]+)(?:\[[ xX]\]\s*)?(?:\*\*|__|\*)?[\(\)\[\]]?\s*([A-Ha-hأإابجدهوزح])\s*[\.\)\:\-\(\]][\)\(\]]?(?:\*\*|__|\*)?\s*/g;
       const leadingMarkers: Array<{ label: string; startIndex: number; matchLength: number }> = [];
       let lMatch: RegExpExecArray | null;
       while ((lMatch = leadingPattern.exec(normalizedLine)) !== null) {
@@ -196,8 +196,8 @@ export class MarkdownParserService {
           if (refRes.exp) {
             currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + refRes.exp;
           }
-          if (choiceText === 'حص') choiceText = 'صح';
-          if (choiceText === 'أطخ') choiceText = 'خطأ';
+          if (choiceText.startsWith('صح ') || choiceText === 'صح' || choiceText === 'حص') choiceText = 'صح';
+          if (choiceText.startsWith('خطأ ') || choiceText.startsWith('خطا ') || choiceText === 'خطأ' || choiceText === 'خطا' || choiceText === 'أطخ') choiceText = 'خطأ';
           if (choiceText) {
             choices.push({ label: current.label, text: choiceText });
           }
@@ -213,57 +213,36 @@ export class MarkdownParserService {
       if (/^(?:صح|صحيح|صواب|ص|حص|true|yes|نعم)(?:\s*[\(\[]?(?:true|صح|صواب)[\)\]]?)?$/i.test(cleanAns)) return ['A'];
       if (/^(?:خطأ|خاطئ|خطا|خ|أطخ|false|no|لا)(?:\s*[\(\[]?(?:false|خطأ|خطا)[\)\]]?)?$/i.test(cleanAns)) return ['B'];
 
-      // 1. Check if rawAns is a single answer with label at start and option text following it:
-      const singleOptionWithTextMatch = cleanAns.match(/^[\(\)]?\s*([A-Ha-hأإابجدهوزح1-8])[\.\)\:\-\(][\(\)]?\s+(.+)$/);
-      if (singleOptionWithTextMatch) {
-        const trailingText = singleOptionWithTextMatch[2].trim();
-        const hasMoreMarkers = /(?:^|[,;\s\u060C\u061B\/\+&]+)[\(\)]?\s*([A-Ha-hأإابجدهوزح1-8])[\.\)\:\-\(][\(\)]?(?=\s+|$)/.test(trailingText) ||
-                               /(?:^|[,;\s\u060C\u061B]+)\s*([A-Ha-hأإابجدهوزح1-8])(?=\s*[,;\s\u060C\u061B]|$)/.test(trailingText);
-        if (!hasMoreMarkers) {
-          let label = singleOptionWithTextMatch[1].toUpperCase();
-          if (arabicChoiceMap[label]) label = arabicChoiceMap[label];
-          if (/^[A-H]$/.test(label)) return [label];
+      // 1. Single option with leading label and following text: e.g. '(B) ف سطع +ف أ ن' or '(A) 3-4 كم'
+      const leadingChoiceMatch = cleanAns.match(/^[\(\[]?\s*([A-Ha-hأإابجدهوزح1-8])\s*[\.\)\:\-\]\)]\s*(.*)$/);
+      if (leadingChoiceMatch) {
+        const firstLabel = leadingChoiceMatch[1].toUpperCase();
+        const mappedFirst = arabicChoiceMap[firstLabel] || firstLabel;
+        const rest = leadingChoiceMatch[2].trim();
+        
+        // Check if rest contains a distinct second choice marker like "(D)" or "و (B)" or ", C"
+        const hasSecondChoiceMarker = /^(?:و|,|،|\+|and)\s*[\(\[]?\s*([A-Ha-h1-8])\s*[\.\)\:\-\]\)]?/i.test(rest) ||
+                                      /[\s,،و\+](?:\([A-Ha-h1-8]\)|\[[A-Ha-h1-8]\]|[A-Ha-h1-8]\))/i.test(rest);
+        if (!hasSecondChoiceMarker && /^[A-H]$/.test(mappedFirst)) {
+          return [mappedFirst];
         }
       }
 
-      // 2. Multi-answer detection:
-      const normalizedDelimiterStr = cleanAns
-        .replace(/\s+و\s+/g, ',')
-        .replace(/[,;\u060C\u061B\/\+&]+/g, ',');
-
-      const parts = normalizedDelimiterStr.split(',').map(p => p.trim()).filter(Boolean);
-      const answers: string[] = [];
-
-      for (const part of parts) {
-        const subParts = part.split(/\s+/).filter(Boolean);
-        for (const sub of subParts) {
-          let cleanP = sub.replace(/[\(\)\[\]\.\:\-]/g, '').trim().toUpperCase();
-          if (arabicChoiceMap[cleanP]) {
-            cleanP = arabicChoiceMap[cleanP];
-          }
-          if (/^[A-H]$/.test(cleanP)) {
-            if (!answers.includes(cleanP)) {
-              answers.push(cleanP);
-            }
-          } else {
-            const match = sub.match(/^[\(\)]?\s*([A-Ha-hأإابجدهوزح1-8])[\.\)\:\-\(]?$/);
-            if (match) {
-              let label = match[1].toUpperCase();
-              if (arabicChoiceMap[label]) label = arabicChoiceMap[label];
-              if (/^[A-H]$/.test(label) && !answers.includes(label)) {
-                answers.push(label);
-              }
-            }
-          }
+      // 2. Multi-choice detection from explicit comma/and-separated choice letters
+      const explicitMulti: string[] = [];
+      const markerRegex = /(?:^|[\s,،و\+])[\(\[]?\s*([A-Ha-h1-8])\s*[\.\)\:\-\]\)]?(?=[\s,،و\+]|$)/g;
+      let m: RegExpExecArray | null;
+      while ((m = markerRegex.exec(cleanAns)) !== null) {
+        const l = m[1].toUpperCase();
+        const mapped = arabicChoiceMap[l] || l;
+        if (/^[A-H]$/.test(mapped) && !explicitMulti.includes(mapped)) {
+          explicitMulti.push(mapped);
         }
       }
-
-      if (answers.length > 0) {
-        return answers;
-      }
+      if (explicitMulti.length > 0) return explicitMulti;
 
       // Fallback: single letter anywhere
-      const letterMatch = cleanAns.match(/[\(\)]?\s*([A-Ha-hأإابجدهوزح1-8])\s*[\.\)\:\-\(]?/);
+      const letterMatch = cleanAns.match(/[\(\[]?\s*([A-Ha-hأإابجدهوزح1-8])\s*[\.\)\:\-\]\)]?/);
       if (letterMatch) {
         let label = letterMatch[1].toUpperCase();
         if (arabicChoiceMap[label]) label = arabicChoiceMap[label];
@@ -317,7 +296,7 @@ export class MarkdownParserService {
         qTextClean = stripped;
       }
 
-      if (qTextClean && !isFooterOrExaminerText(qTextClean)) {
+      if (qTextClean && !/^[\(\)\[\]\s\-\.\:\_]+$/.test(qTextClean) && !isFooterOrExaminerText(qTextClean)) {
         let choices = [...currentChoices];
 
         // If no explicit choices found, check if it's a True/False question or fallback
@@ -326,30 +305,149 @@ export class MarkdownParserService {
             { id: 'A', label: 'A', text: 'صح / True' },
             { id: 'B', label: 'B', text: 'خطأ / False' }
           ];
+        } else if (choices.length === 1) {
+          const first = choices[0];
+          if (first.text.includes('صح') || first.text.includes('خطأ') || first.text.includes('True') || first.text.includes('False')) {
+            choices = [
+              { id: 'A', label: 'A', text: 'صح / True' },
+              { id: 'B', label: 'B', text: 'خطأ / False' }
+            ];
+          } else {
+            const nextId = first.id === 'A' ? 'B' : 'A';
+            choices.push({ id: nextId, label: nextId, text: 'غير ذلك / لا ينطبق' });
+            choices.sort((a, b) => a.id.localeCompare(b.id));
+          }
         }
 
         // Overlap and True/False answer inference if no explicit answer key found
         if (currentCorrectAnswers.length === 0 && currentExplanation) {
-          const isTF = choices.length === 2 && (choices[0].text.includes('صح') || choices[1].text.includes('خطأ'));
+          const isTF = choices.length === 2 && choices.some(c => c.text.includes('صح')) && choices.some(c => c.text.includes('خطأ'));
           if (isTF) {
-            const isFalse = /وليس من|بينما|خطأ|هذا تعريف|إنما|وليس|بدلاً من/i.test(currentExplanation);
-            currentCorrectAnswers.push(isFalse ? 'B' : 'A');
-          } else if (choices.length > 0) {
-            let maxOverlap = -1;
-            let bestChoice = choices[0].id;
-            for (const ch of choices) {
-              const words = ch.text.split(/\s+/).filter(w => w.length > 2);
-              let count = 0;
-              for (const w of words) {
-                if (currentExplanation.includes(w)) count++;
-              }
-              const ratio = words.length > 0 ? count / words.length : 0;
-              if (ratio > maxOverlap) {
-                maxOverlap = ratio;
-                bestChoice = ch.id;
+            let isFalse = /[؛;]|بينما|وليس|هذا تعريف|إنما|بدلاً|خطأ|غير صحيح|أما\s+[^\n\r]+فتقدم|حيث\s+تدجر|نفت/i.test(currentExplanation) && !currentExplanation.startsWith('نص');
+            const qNums = qTextClean.match(/\b\d+(?:\.\d+)?\b/g);
+            const quoteMatch = currentExplanation.match(/["“]([^"”]+)["”]/);
+            if (quoteMatch && qNums) {
+              const quoteNums = quoteMatch[1].match(/\b\d+(?:\.\d+)?\b/g);
+              if (quoteNums && qNums.length === quoteNums.length && !qNums.every((n, idx) => n === quoteNums[idx])) {
+                isFalse = true;
               }
             }
-            currentCorrectAnswers.push(bestChoice);
+            currentCorrectAnswers.push(isFalse ? 'B' : 'A');
+          } else if (choices.length > 0) {
+            // Check for multi-choice statements in explanation
+            const triMatch = currentExplanation.match(/[\(\[\]\)]*\s*([أإابجدهوزحA-Ha-h])\s*[\(\[\]\)]*\s*(?:و|،)\s*[\(\[\]\)]*\s*([أإابجدهوزحA-Ha-h])\s*[\(\[\]\)]*\s*(?:و|،)\s*[\(\[\]\)]*\s*([أإابجدهوزحA-Ha-h])\s*[\(\[\]\)]*\s*(?:صحيحة|مطابقة|صحيحان|صحيح)/i);
+            const biMatch = currentExplanation.match(/(?:الخياران|الخيانار|كل\s*من|كلا\s*من)?[\s\n\r]*[\(\[\]\)]*\s*([أإابجدهوزحA-Ha-h])\s*[\(\[\]\)]*\s*(?:و|،)\s*[\(\[\]\)]*\s*([أإابجدهوزحA-Ha-h])\s*[\(\[\]\)]*[\s\n\r]*(?:صحيحان|مطابقان|يمثلان|معتمدان|صحيحة|مطابق|صحيح)/i);
+
+            if (triMatch) {
+              const a1 = arabicChoiceMap[triMatch[1]] || triMatch[1].toUpperCase();
+              const a2 = arabicChoiceMap[triMatch[2]] || triMatch[2].toUpperCase();
+              const a3 = arabicChoiceMap[triMatch[3]] || triMatch[3].toUpperCase();
+              [a1, a2, a3].forEach(ans => {
+                if (!currentCorrectAnswers.includes(ans)) currentCorrectAnswers.push(ans);
+              });
+            } else if (biMatch) {
+              const a1 = arabicChoiceMap[biMatch[1]] || biMatch[1].toUpperCase();
+              const a2 = arabicChoiceMap[biMatch[2]] || biMatch[2].toUpperCase();
+              [a1, a2].forEach(ans => {
+                if (!currentCorrectAnswers.includes(ans)) currentCorrectAnswers.push(ans);
+              });
+            } else {
+              const normalizeArabicForMatch = (str: string): string => {
+                return (str || '')
+                  .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+                  .replace(/[أإآا]/g, 'ا')
+                  .replace(/[ىيئ]/g, 'ي')
+                  .replace(/ة/g, 'ه')
+                  .replace(/ؤ/g, 'و')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+              };
+
+              const normExp = normalizeArabicForMatch(currentExplanation);
+              const spacelessExp = normExp.replace(/\s+/g, '');
+              const scoredChoices: Array<{ id: string; score: number; exactMatch: boolean; text: string }> = [];
+
+              for (const ch of choices) {
+                let score = 0;
+                const chText = ch.text.trim();
+                const normCh = normalizeArabicForMatch(chText);
+                const spacelessCh = normCh.replace(/\s+/g, '');
+
+                // Exact full choice match (including spaceless match for RTL joined words)
+                let exactMatch = false;
+                if (normCh.length > 2 && normExp.includes(normCh)) {
+                  score += 200 + normCh.length * 5;
+                  exactMatch = true;
+                } else if (spacelessCh.length > 3 && spacelessExp.includes(spacelessCh)) {
+                  score += 200 + spacelessCh.length * 5;
+                  exactMatch = true;
+                }
+
+                // Number / range matching
+                const rangeMatch = chText.match(/(\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?)/);
+                if (rangeMatch) {
+                  const r1 = rangeMatch[1].replace(/\s+/g, '');
+                  const r2 = r1.split('-').reverse().join('-');
+                  const normExpNoSpace = normExp.replace(/\s+/g, '');
+                  if (normExpNoSpace.includes(r1) || normExpNoSpace.includes(r2)) {
+                    score += 350;
+                  }
+                } else {
+                  const singleNumMatch = chText.match(/(?:^|\s)(\d+(?:\.\d+)?%?)(?:\s|$|كم)/);
+                  if (singleNumMatch) {
+                    const sNum = singleNumMatch[1];
+                    const qRegex = new RegExp('(?:مسافة|حوالى|حوالي|حتى|على|مخزن|\\s)\"?' + sNum + '(?:كم|%|\\s|$|\")', 'i');
+                    if (qRegex.test(currentExplanation) || qRegex.test(normExp)) {
+                      score += 150;
+                    }
+                  }
+                }
+
+                // Words overlap
+                const words = normCh.split(/\s+/).filter(w => w.length >= 2);
+                let count = 0;
+                for (const w of words) {
+                  const stem = w.replace(/^(?:ال|و|ف|ب|ك|ل)/, '');
+                  if (normExp.includes(w) || (stem.length >= 2 && normExp.includes(stem)) || (stem.length >= 3 && spacelessExp.includes(stem))) {
+                    count++;
+                  }
+                }
+                const ratio = words.length > 0 ? count / words.length : 0;
+                score += ratio * 80;
+                if (count >= 2 && ratio >= 0.85) {
+                  score += 200;
+                }
+
+                scoredChoices.push({ id: ch.id, score, exactMatch, text: chText });
+              }
+
+              scoredChoices.sort((a, b) => b.score - a.score);
+
+              // If multiple choices have high match scores in explanation quote/text:
+              const topChoices = scoredChoices.filter(c => c.exactMatch || c.score >= 250);
+              if (topChoices.length >= 2) {
+                // Check if one choice is not a substring/subset of another
+                const nonSubsets = topChoices.filter(c1 => !topChoices.some(c2 => c2 !== c1 && c2.text.includes(c1.text)));
+                if (nonSubsets.length >= 2) {
+                  currentCorrectAnswers.push(...nonSubsets.map(c => c.id).sort());
+                } else {
+                  currentCorrectAnswers.push(topChoices[0].id);
+                }
+              } else if (scoredChoices.length > 0 && scoredChoices[0].score > 50) {
+                currentCorrectAnswers.push(scoredChoices[0].id);
+              } else {
+                // Paragraph reference with choice letter like "بند)619-ب(" or "بند)595-أ-6("
+                const بندLetterMatch = currentExplanation.match(/بند\s*\)?\s*\d+\s*-\s*([أإابجدهوزحA-Ha-h])\b/i);
+                if (بندLetterMatch) {
+                  const l = arabicChoiceMap[بندLetterMatch[1]] || بندLetterMatch[1].toUpperCase();
+                  if (choices.some(c => c.id === l)) currentCorrectAnswers.push(l);
+                }
+              }
+
+              if (currentCorrectAnswers.length === 0 && scoredChoices.length > 0) {
+                currentCorrectAnswers.push(scoredChoices[0].id);
+              }
+            }
           }
         }
 
@@ -419,7 +517,7 @@ export class MarkdownParserService {
         currentExplanation = null;
       } else if (answerKeyMatch) {
         const parsedAns = parseCorrectAnswer(answerKeyMatch[1]);
-        currentCorrectAnswers.push(...parsedAns);
+        currentCorrectAnswers = [...parsedAns];
       } else if (expMatch) {
         currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + expMatch[1].trim();
       } else if (extractedChoices) {
@@ -450,19 +548,17 @@ export class MarkdownParserService {
         if (cleanContent) {
           if (cleanContent.startsWith('السندمنالمرجع') || cleanContent.startsWith('السند من المرجع')) {
             currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + cleanContent;
+          } else if (currentExplanation !== null) {
+            let cleanExpLine = cleanContent.replace(/[\)\(\]\[]\s*$/, '');
+            currentExplanation += ' ' + cleanExpLine;
           } else if (currentChoices.length > 0) {
-            if (currentExplanation && (currentExplanation.includes('المرجع') || currentExplanation.includes('ص '))) {
-              let cleanExpLine = cleanContent.replace(/[\)\(\]\[]\s*$/, '');
-              currentExplanation += ' ' + cleanExpLine;
-            } else {
-              let lastChoice = currentChoices[currentChoices.length - 1];
-              lastChoice.text += ' ' + cleanContent;
-              
-              const refRes = extractRef(lastChoice.text);
-              if (refRes.exp) {
-                currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + refRes.exp;
-                lastChoice.text = refRes.clean;
-              }
+            let lastChoice = currentChoices[currentChoices.length - 1];
+            lastChoice.text += ' ' + cleanContent;
+            
+            const refRes = extractRef(lastChoice.text);
+            if (refRes.exp) {
+              currentExplanation = (currentExplanation ? currentExplanation + '\n' : '') + refRes.exp;
+              lastChoice.text = refRes.clean;
             }
           } else {
             currentQText = (currentQText ? currentQText + '\n' : '') + cleanContent;
