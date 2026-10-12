@@ -79,16 +79,6 @@ import { LanguageSwitchComponent } from '../language-switch/language-switch.comp
       <main class="flex-grow max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <router-outlet></router-outlet>
       </main>
-      
-      <footer class="bg-white border-t border-gray-200 py-6 mt-auto">
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-500 flex flex-col sm:flex-row justify-between items-center gap-2">
-          <span class="flex items-center gap-2">
-            <img src="assets/logo.png" alt="Logo" class="w-5 h-5 object-contain" />
-            <span>Excel Quiz Generator &copy; 2026 — 100% Client-Side Offline PWA</span>
-          </span>
-          <span class="text-emerald-700 font-semibold">🔒 0 Network Calls • 100% Device Local Processing</span>
-        </div>
-      </footer>
     </div>
   `,
   styles: []
