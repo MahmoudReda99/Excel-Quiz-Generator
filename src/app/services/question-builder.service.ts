@@ -178,35 +178,43 @@ export class QuestionBuilderService {
     const text = String(qText || '').trim();
     if (!text) return true;
 
-    // Signature, Examiner, Committee, and Footer keywords
-    const footerKeywords = [
-      'إعداد', 'اعداد', 'إشراف', 'اشراف', 'رئيس اللجنة', 'اعضاء اللجنة', 'أعضاء اللجنة',
-      'توقيع', 'عضو اللجنة', 'الممتحن', 'المراجع', 'اللجنة الامتحانية', 'لجنة الاختبار',
-      'مع تمنياتنا', 'انتهت الأسئلة', 'انتهت الاسئلة', 'تم بحمد الله', 'النتيجة النهائية',
-      'ملاحظات', 'اسم المراجع', 'رقم البند', 'رقم الصفحة', 'اسم المرجع', 'رئيس قاطع', 'مشرف الدور', 'قائد المركز',
-      'examiner', 'signature', 'prepared by', 'approved by', 'committee', 'page '
-    ];
+    const hasAnswer = rawAnswer !== null && rawAnswer !== undefined && String(rawAnswer).trim() !== '';
+    const rawAnswerLower = String(rawAnswer || '').trim().toLowerCase();
+    const isTrueFalseAnswer = rawAnswerLower === 'true' || rawAnswerLower === 'false' || 
+                              rawAnswerLower === 'صح' || rawAnswerLower === 'خطأ' || 
+                              rawAnswerLower === 'صواب';
 
-    const lowerText = text.toLowerCase();
-    const isKeywordMatch = footerKeywords.some(kw => lowerText.startsWith(kw) || (lowerText.length < 80 && lowerText.includes(kw)));
-    if (isKeywordMatch) {
+    // If row has both explicit choices (>= 2) and a correct answer, or is a True/False question with answer,
+    // it is a genuine question and NEVER a footer or signature!
+    if (hasAnswer && (explicitChoicesCount >= 2 || isTrueFalseAnswer)) {
+      return false;
+    }
+
+    // End of exam statements (e.g. انتهت الأسئلة, تم بحمد الله, مع تمنياتنا بالتوفيق)
+    const endOfExamRegex = /^(?:انتهت الأسئلة|انتهت الاسئلة|مع تمنياتنا|تم بحمد الله|النتيجة النهائية)/i;
+    if (endOfExamRegex.test(text)) {
       return true;
     }
 
-    // Military Ranks signature pattern check (e.g. عميد أ ح /, مقدم /, رائد /, عقيد /, نقيب /, ملازم /, لواء /, فريق /)
-    const militaryRankRegex = /(?:^|\s)(?:عميد|عقيد|مقدم|رائد|نقيب|ملازم|لواء|فريق|مشير)(?:\s+أ\s*\.?\s*ح)?\s*[\/\s]/i;
-    if (militaryRankRegex.test(text)) {
+    // Explicit signature lines (e.g. "إعداد : فلان", "إشراف / فلان", "رئيس اللجنة:")
+    const signaturePrefixRegex = /^(?:إعداد|اعداد|إشراف|اشراف|توقيع|رئيس اللجنة|اعضاء اللجنة|أعضاء اللجنة|الممتحن|المراجع|اللجنة الامتحانية|لجنة الاختبار|اسم المراجع|رئيس قاطع|مشرف الدور|قائد المركز|examiner|signature|prepared by|approved by)\s*[:\/\-]/i;
+    if (signaturePrefixRegex.test(text)) {
       return true;
     }
 
-    // Check if choices text contains military rank signatures
+    // Military ranks used as signature lines (e.g. "عميد أ ح / فلان", "مقدم / فلان")
+    const militaryRankSignatureRegex = /^(?:عميد|عقيد|مقدم|رائد|نقيب|ملازم|لواء|فريق|مشير)(?:\s+أ\s*\.?\s*ح)?\s*[\/\:\-]/i;
+    if (militaryRankSignatureRegex.test(text)) {
+      return true;
+    }
+
+    // Check if choices text contains military rank signatures without an answer
     const choicesCombined = choicesText.join(' ');
-    if (choicesCombined && militaryRankRegex.test(choicesCombined) && (!rawAnswer || String(rawAnswer).trim() === '')) {
+    if (choicesCombined && militaryRankSignatureRegex.test(choicesCombined) && !hasAnswer) {
       return true;
     }
 
     // If choice columns exist in mapping, but this row has 0 choice text AND no correct answer
-    const hasAnswer = rawAnswer !== null && rawAnswer !== undefined && String(rawAnswer).trim() !== '';
     if (hasChoiceCols && explicitChoicesCount === 0 && !hasAnswer) {
       return true;
     }

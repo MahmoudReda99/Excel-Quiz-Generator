@@ -138,9 +138,49 @@ export class QuizStateService {
     return dupCount;
   }
 
-  answersAreEqual(a: string | string[] | null | undefined, b: string | string[] | null | undefined): boolean {
+  normalizeAnswerValueText(text: string): string {
+    if (!text) return '';
+    return String(text)
+      .normalize('NFKC')
+      .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+      .replace(/[أإآٱ]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/[ىي]/g, 'ي')
+      .replace(/ؤ/g, 'و')
+      .replace(/ئ/g, 'ي')
+      .replace(/[؟?.,:;!\-_()[\]{}"'«»"“”\/\\*#~^%&+=><]/g, ' ')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  getQuestionAnswerSemanticKey(q: QuizQuestion): string {
+    const ans = q.correctAnswer;
+    const rawList = Array.isArray(ans) ? ans : [ans];
+    const textValues = rawList.map(item => {
+      const trimmed = String(item || '').trim();
+      const matchedChoice = (q.choices || []).find(
+        c => c.id.toUpperCase() === trimmed.toUpperCase() || 
+             (c.label && c.label.toUpperCase() === trimmed.toUpperCase())
+      );
+      const text = matchedChoice ? matchedChoice.text : trimmed;
+      return this.normalizeAnswerValueText(text);
+    }).filter(Boolean);
+
+    return textValues.sort().join('||');
+  }
+
+  answersAreEqual(a: string | string[] | null | undefined, b: string | string[] | null | undefined, qA?: QuizQuestion, qB?: QuizQuestion): boolean {
     if (a === b) return true;
     if (a === null || a === undefined || b === null || b === undefined) return false;
+
+    // Compare by normalized semantic answer content if question objects are available
+    if (qA && qB) {
+      const semA = this.getQuestionAnswerSemanticKey(qA);
+      const semB = this.getQuestionAnswerSemanticKey(qB);
+      if (semA && semB && semA === semB) return true;
+    }
+
     const normA = Array.isArray(a)
       ? a.map(x => String(x || '').trim().toUpperCase()).sort().join(',')
       : String(a || '').trim().toUpperCase();
@@ -168,62 +208,81 @@ export class QuizStateService {
     for (const [key, qList] of groups.entries()) {
       if (qList.length <= 1) continue;
 
-      const answerCounts = new Map<string, { answer: string | string[]; count: number }>();
-      for (const q of qList) {
-        const normKey = Array.isArray(q.correctAnswer)
-          ? q.correctAnswer.map(x => String(x || '').trim().toUpperCase()).sort().join(',')
-          : String(q.correctAnswer || '').trim().toUpperCase();
+      // Map semantic answer content (meaning/text) across all duplicate questions
+      const semanticCounts = new Map<string, {
+        semanticKey: string;
+        answer: string | string[];
+        count: number;
+        sampleText: string;
+        sampleLabel: string;
+      }>();
 
-        if (!answerCounts.has(normKey)) {
-          answerCounts.set(normKey, { answer: q.correctAnswer, count: 0 });
+      // Collect best choices across duplicate questions
+      let bestChoices: QuizChoice[] = [];
+      for (const q of qList) {
+        if (q.choices && q.choices.length > bestChoices.length) {
+          bestChoices = q.choices;
         }
-        answerCounts.get(normKey)!.count++;
       }
 
-      // If there are different answers among duplicate questions
-      if (answerCounts.size > 1) {
-        // Collect best/most complete choices across all duplicate instances
-        let bestChoices: QuizChoice[] = [];
-        for (const q of qList) {
-          if (q.choices && q.choices.length > bestChoices.length) {
-            bestChoices = q.choices;
+      for (const q of qList) {
+        const semKey = this.getQuestionAnswerSemanticKey(q) || (
+          Array.isArray(q.correctAnswer)
+            ? q.correctAnswer.map(x => String(x || '').trim().toUpperCase()).sort().join(',')
+            : String(q.correctAnswer || '').trim().toUpperCase()
+        );
+
+        // Find human readable sample label and text
+        let sampleText = '';
+        let sampleLabel = '';
+        const rawAnsList = Array.isArray(q.correctAnswer) ? q.correctAnswer : [q.correctAnswer];
+        const labelParts: string[] = [];
+        const textParts: string[] = [];
+
+        rawAnsList.forEach(ansItem => {
+          const matchedChoice = (q.choices || []).find(
+            c => c.id.toUpperCase() === String(ansItem || '').trim().toUpperCase() ||
+                 (c.label && c.label.toUpperCase() === String(ansItem || '').trim().toUpperCase())
+          );
+          if (matchedChoice) {
+            labelParts.push(matchedChoice.label || matchedChoice.id);
+            textParts.push(matchedChoice.text);
+          } else {
+            labelParts.push(String(ansItem || ''));
+            textParts.push(String(ansItem || ''));
           }
+        });
+
+        sampleLabel = labelParts.join(', ');
+        sampleText = textParts.join(' + ');
+
+        if (!semanticCounts.has(semKey)) {
+          semanticCounts.set(semKey, {
+            semanticKey: semKey,
+            answer: q.correctAnswer,
+            count: 0,
+            sampleText,
+            sampleLabel
+          });
         }
+        semanticCounts.get(semKey)!.count++;
+      }
 
+      // If semantic text of the answers is genuinely different between the duplicates
+      if (semanticCounts.size > 1) {
         const conflictingAnswers: ConflictingAnswerDetail[] = [];
-        for (const [normKey, item] of answerCounts.entries()) {
-          let sampleText = '';
-          let sampleLabel = '';
-          if (typeof item.answer === 'string') {
-            const matchedChoice = bestChoices.find(c => c.id === item.answer || c.label === item.answer);
-            if (matchedChoice) {
-              sampleText = matchedChoice.text;
-              sampleLabel = matchedChoice.label || matchedChoice.id;
-            } else {
-              sampleLabel = item.answer;
-              sampleText = item.answer;
-            }
-          } else if (Array.isArray(item.answer)) {
-            sampleLabel = item.answer.join(', ');
-            const texts = item.answer.map(ans => {
-              const mc = bestChoices.find(c => c.id === ans || c.label === ans);
-              return mc ? `${mc.label || mc.id}: ${mc.text}` : ans;
-            });
-            sampleText = texts.join(' + ');
-          }
-
+        for (const [semKey, item] of semanticCounts.entries()) {
           conflictingAnswers.push({
             answer: item.answer,
-            answerKey: normKey,
+            answerKey: semKey,
             count: item.count,
-            sampleChoiceText: sampleText,
-            sampleLabel: sampleLabel
+            sampleChoiceText: item.sampleText,
+            sampleLabel: item.sampleLabel
           });
         }
 
-        // Check if currently resolved
-        const firstAns = qList[0].correctAnswer;
-        const allSame = qList.every(q => this.answersAreEqual(q.correctAnswer, firstAns));
+        const firstQ = qList[0];
+        const allSame = qList.every(q => this.answersAreEqual(q.correctAnswer, firstQ.correctAnswer, q, firstQ));
 
         conflictGroups.push({
           key,
@@ -231,7 +290,7 @@ export class QuizStateService {
           questions: qList,
           conflictingAnswers,
           choices: bestChoices,
-          resolvedAnswer: allSame ? firstAns : null,
+          resolvedAnswer: allSame ? firstQ.correctAnswer : null,
           isResolved: allSame
         });
       }
