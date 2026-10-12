@@ -75,12 +75,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             </div>
           </div>
 
-          <!-- Filter & Storage Usage Badge -->
-          <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
-            <div *ngIf="storageUsage.usedBytes > 0" class="text-[11px] font-bold text-gray-500 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-              <span>💾</span>
-              <span>المساحة: {{ formatSize(storageUsage.usedBytes) }}</span>
-            </div>
+          <!-- Action Buttons -->
+          <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
 
             <button
               *ngIf="savedFiles.length > 0"
@@ -173,14 +169,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                 class="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold transition-all"
                 title="إعادة البدء من جديد من السؤال الأول">
                 🔄
-              </button>
-
-              <!-- Download original blob -->
-              <button
-                (click)="downloadFile(file.id)"
-                class="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-all"
-                title="تنزيل الملف">
-                📥
               </button>
 
               <!-- Delete -->

@@ -71,11 +71,6 @@ import { LanguageSwitchComponent } from '../language-switch/language-switch.comp
               <span>{{ 'app.home' | translate }}</span>
             </a>
 
-            <button 
-              (click)="clearData()" 
-              class="text-xs text-red-500 hover:text-red-700 px-3 py-1.5 rounded-xl border border-transparent hover:border-red-100 bg-red-50 hover:bg-red-100 font-bold transition-colors">
-              {{ 'app.clearData' | translate }}
-            </button>
             <app-language-switch></app-language-switch>
           </div>
         </div>
