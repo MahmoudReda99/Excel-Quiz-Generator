@@ -21,8 +21,9 @@ export interface QuizConfig {
   mode: 'practice' | 'exam';
   randomizeQuestions: boolean;
   randomizeAnswers: boolean;
-  questionCount: number | 'all';
+  questionCount: number | 'all' | 'flagged';
   timerMinutes: number | null;
+  flaggedOnly?: boolean;
 }
 
 export interface QuizResult {

@@ -212,6 +212,16 @@ import { QuizChoice } from '../../models/quiz.model';
           <span>{{ 'validation.studyMode' | translate }}</span>
         </button>
 
+        <!-- Start Flagged Quiz Button (if any flagged from study mode) -->
+        <button 
+          *ngIf="flaggedCount > 0" 
+          type="button" 
+          class="inline-flex justify-center items-center px-5 py-3 border border-amber-400 shadow-sm text-sm font-black rounded-xl text-amber-950 bg-amber-100 hover:bg-amber-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-all gap-2" 
+          (click)="generateFlaggedQuiz.emit()">
+          <span>🚩</span>
+          <span>اختبار الأسئلة المعلّمة ({{ flaggedCount }})</span>
+        </button>
+
         <button type="button" class="inline-flex justify-center items-center px-6 py-3 border border-transparent shadow-sm text-sm font-bold rounded-xl text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors gap-2" (click)="generateQuiz.emit()">
           <span>🚀</span>
           <span>{{ 'validation.generateQuiz' | translate }}</span>
@@ -227,6 +237,7 @@ export class ValidationReportComponent {
   @Input() canRestoreDuplicates: boolean = false;
   @Input() conflictGroups: ConflictingQuestionGroup[] = [];
   @Input() resolvedConflictCount: number = 0;
+  @Input() flaggedCount: number = 0;
 
   @Output() fixMapping = new EventEmitter<void>();
   @Output() skipInvalid = new EventEmitter<void>();
@@ -234,6 +245,7 @@ export class ValidationReportComponent {
   @Output() restoreDuplicates = new EventEmitter<void>();
   @Output() studyMode = new EventEmitter<void>();
   @Output() generateQuiz = new EventEmitter<void>();
+  @Output() generateFlaggedQuiz = new EventEmitter<void>();
   @Output() resolveConflict = new EventEmitter<{ key: string; chosenAnswer: string | string[] }>();
   @Output() resolveAllConflictsByMajority = new EventEmitter<void>();
 

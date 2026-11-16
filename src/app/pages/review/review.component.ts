@@ -27,13 +27,23 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           </p>
         </div>
 
-        <div class="flex items-center gap-3 w-full sm:w-auto">
+        <div class="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
           <button (click)="goBack()" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-sm transition-colors w-full sm:w-auto">
             {{ (isStudyMode ? 'review.backToAnalysis' : 'review.backResults') | translate }}
           </button>
 
-          <button *ngIf="isStudyMode" (click)="startQuizNow()" class="btn-primary px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all w-full sm:w-auto flex items-center justify-center gap-2 whitespace-nowrap">
-            <span>{{ 'review.startQuizNow' | translate }}</span>
+          <!-- Start Flagged Quiz Button (if any flagged) -->
+          <button 
+            *ngIf="isStudyMode && flaggedCount > 0" 
+            (click)="startQuizNow(true)" 
+            class="px-5 py-2.5 rounded-xl font-black text-sm bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg transition-all w-full sm:w-auto flex items-center justify-center gap-2 whitespace-nowrap ring-2 ring-amber-300">
+            <span>🚩</span>
+            <span>بدء اختبار بالأسئلة المعلّمة ({{ flaggedCount }})</span>
+          </button>
+
+          <button *ngIf="isStudyMode" (click)="startQuizNow(false)" class="btn-primary px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all w-full sm:w-auto flex items-center justify-center gap-2 whitespace-nowrap">
+            <span>🚀</span>
+            <span>{{ flaggedCount > 0 ? 'بدء اختبار شامل (الكل)' : ('review.startQuizNow' | translate) }}</span>
           </button>
         </div>
       </div>
@@ -112,6 +122,27 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               [class.hover:bg-gray-200]="activeFilter !== 'unanswered'">
               ⊘ {{ 'quiz.unanswered' | translate }} ({{ unansweredCount }})
             </button>
+
+            <button
+              *ngIf="flaggedCount > 0 || isStudyMode"
+              (click)="setFilter('pending')"
+              class="py-1.5 px-3 rounded-lg transition-all flex items-center gap-1.5"
+              [class.bg-amber-500]="activeFilter === 'pending'"
+              [class.text-white]="activeFilter === 'pending'"
+              [class.shadow-sm]="activeFilter === 'pending'"
+              [class.bg-gray-100]="activeFilter !== 'pending'"
+              [class.text-amber-900]="activeFilter !== 'pending'"
+              [class.hover:bg-gray-200]="activeFilter !== 'pending'">
+              <span>🚩</span>
+              <span>الأسئلة المعلّمة</span>
+              <span class="px-1.5 py-0.5 rounded-full text-[10px] font-black"
+                [class.bg-amber-100]="activeFilter !== 'pending'"
+                [class.text-amber-950]="activeFilter !== 'pending'"
+                [class.bg-white]="activeFilter === 'pending'"
+                [class.text-amber-900]="activeFilter === 'pending'">
+                {{ flaggedCount }}
+              </span>
+            </button>
           </div>
 
           <!-- Matching count indicator -->
@@ -185,7 +216,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           *ngFor="let item of filteredMatches"
           [question]="item.question"
           [questionNumber]="item.originalIndex + 1"
-          [searchQuery]="searchQuery">
+          [searchQuery]="searchQuery"
+          [isStudyMode]="isStudyMode"
+          (toggleFlag)="onToggleFlag($event)">
         </app-review-answer>
       </div>
 
@@ -200,8 +233,18 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <span>{{ 'validation.restoreDuplicates' | translate }}</span>
         </button>
 
-        <button *ngIf="isStudyMode" (click)="startQuizNow()" class="btn-primary px-8 py-3.5 rounded-xl font-bold text-base shadow-md hover:shadow-lg transition-all w-full sm:w-auto flex items-center justify-center gap-2">
-          <span>{{ 'review.startQuizNow' | translate }}</span>
+        <!-- Start Flagged Quiz Button (if any flagged) -->
+        <button 
+          *ngIf="isStudyMode && flaggedCount > 0" 
+          (click)="startQuizNow(true)" 
+          class="px-7 py-3.5 rounded-xl font-black text-base bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg transition-all w-full sm:w-auto flex items-center justify-center gap-2 ring-2 ring-amber-300">
+          <span>🚩</span>
+          <span>بدء اختبار بالأسئلة المعلّمة فقط ({{ flaggedCount }} سؤال)</span>
+        </button>
+
+        <button *ngIf="isStudyMode" (click)="startQuizNow(false)" class="btn-primary px-8 py-3.5 rounded-xl font-bold text-base shadow-md hover:shadow-lg transition-all w-full sm:w-auto flex items-center justify-center gap-2">
+          <span>🚀</span>
+          <span>{{ flaggedCount > 0 ? 'بدء اختبار شامل (جميع الأسئلة)' : ('review.startQuizNow' | translate) }}</span>
         </button>
       </div>
     </div>
@@ -213,7 +256,7 @@ export class ReviewPageComponent implements OnInit {
   backupQuestions: QuizQuestion[] = [];
   
   searchQuery: string = '';
-  activeFilter: 'all' | 'correct' | 'wrong' | 'unanswered' = 'all';
+  activeFilter: 'all' | 'correct' | 'wrong' | 'unanswered' | 'pending' = 'all';
 
   isStudyMode: boolean = false;
   duplicateCount: number = 0;
@@ -221,6 +264,10 @@ export class ReviewPageComponent implements OnInit {
 
   get canRestoreDuplicates(): boolean {
     return this.backupQuestions.length > this.questions.length;
+  }
+
+  get flaggedCount(): number {
+    return this.questions.filter(q => !!q.isPending).length;
   }
 
   constructor(
@@ -243,11 +290,28 @@ export class ReviewPageComponent implements OnInit {
     this.applyFilters();
   }
 
+  onToggleFlag(question: QuizQuestion) {
+    const newFlagState = this.quizStateService.toggleQuestionFlag(question.id, question.text);
+    question.isPending = newFlagState;
+    const match = this.questions.find(q => 
+      (question.id && q.id === question.id) || 
+      (q.text && question.text && q.text.trim() === question.text.trim())
+    );
+    if (match) {
+      match.isPending = newFlagState;
+    }
+    const currentState = this.quizStateService.getCurrentState();
+    if (currentState && currentState.questions) {
+      this.questions = currentState.questions;
+    }
+    this.applyFilters();
+  }
+
   onSearchChange() {
     this.applyFilters();
   }
 
-  setFilter(filter: 'all' | 'correct' | 'wrong' | 'unanswered') {
+  setFilter(filter: 'all' | 'correct' | 'wrong' | 'unanswered' | 'pending') {
     this.activeFilter = filter;
     this.applyFilters();
   }
@@ -331,17 +395,18 @@ export class ReviewPageComponent implements OnInit {
     }
   }
 
-  startQuizNow() {
+  startQuizNow(flaggedOnly: boolean = false) {
     const defaultConfig: QuizConfig = {
       mode: 'exam',
       randomizeQuestions: true,
       randomizeAnswers: true,
-      questionCount: 'all',
-      timerMinutes: null
+      questionCount: flaggedOnly ? 'flagged' : 'all',
+      timerMinutes: null,
+      flaggedOnly
     };
 
     this.quizStateService.configureQuiz(defaultConfig);
-    this.quizStateService.startQuiz();
+    this.quizStateService.startQuiz(flaggedOnly);
     this.router.navigate(['/quiz']);
   }
 }

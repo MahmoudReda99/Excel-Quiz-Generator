@@ -107,6 +107,7 @@ import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
           [validationResult]="validationResult"
           [duplicateCount]="duplicateCount"
           [totalCount]="allQuestions.length"
+          [flaggedCount]="flaggedCount"
           [canRestoreDuplicates]="canRestoreDuplicates"
           [conflictGroups]="conflictGroups"
           [resolvedConflictCount]="resolvedConflictCount"
@@ -117,7 +118,8 @@ import { QuizQuestion, QuizConfig } from '../../models/quiz.model';
           (resolveConflict)="onResolveConflict($event)"
           (resolveAllConflictsByMajority)="onResolveAllConflictsByMajority()"
           (studyMode)="onStudyMode()"
-          (generateQuiz)="onGenerateQuiz()">
+          (generateQuiz)="onGenerateQuiz()"
+          (generateFlaggedQuiz)="onGenerateFlaggedQuiz()">
         </app-validation-report>
       </div>
 
@@ -231,7 +233,7 @@ export class AnalysisComponent implements OnInit {
       }
     });
 
-    this.allQuestions = combinedQuestions;
+    this.allQuestions = this.restoreExistingFlags(combinedQuestions);
     this.backupQuestions = [];
     this.updateStateAndConflicts();
   }
@@ -259,9 +261,27 @@ export class AnalysisComponent implements OnInit {
       return;
     }
     if (!this.currentSheet) return;
-    this.allQuestions = this.builder.buildQuestions(this.currentSheet, this.mapping);
+    const rawQuestions = this.builder.buildQuestions(this.currentSheet, this.mapping);
+    this.allQuestions = this.restoreExistingFlags(rawQuestions);
     this.backupQuestions = [];
     this.updateStateAndConflicts();
+  }
+
+  private restoreExistingFlags(questions: QuizQuestion[]): QuizQuestion[] {
+    const existingVal = this.quizState.validatedQuestions$.value;
+    if (!existingVal || existingVal.length === 0) return questions;
+
+    const flaggedIds = new Set(existingVal.filter(q => !!q.isPending).map(q => q.id));
+    const flaggedTexts = new Set(existingVal.filter(q => !!q.isPending).map(q => q.text.trim()));
+
+    if (flaggedIds.size === 0 && flaggedTexts.size === 0) return questions;
+
+    return questions.map(q => {
+      if (flaggedIds.has(q.id) || flaggedTexts.has(q.text.trim())) {
+        return { ...q, isPending: true };
+      }
+      return q;
+    });
   }
 
   private updateStateAndConflicts() {
@@ -319,6 +339,10 @@ export class AnalysisComponent implements OnInit {
     this.router.navigate(['/review']);
   }
 
+  get flaggedCount(): number {
+    return this.allQuestions.filter(q => !!q.isPending).length;
+  }
+
   onGenerateQuiz() {
     this.quizState.setQuestions(this.allQuestions);
     this.quizState.setValidatedQuestions(this.allQuestions);
@@ -329,11 +353,31 @@ export class AnalysisComponent implements OnInit {
       randomizeQuestions: true,
       randomizeAnswers: true,
       questionCount: 'all',
-      timerMinutes: null
+      timerMinutes: null,
+      flaggedOnly: false
     };
 
     this.quizState.configureQuiz(defaultConfig);
-    this.quizState.startQuiz();
+    this.quizState.startQuiz(false);
+    this.router.navigate(['/quiz']);
+  }
+
+  onGenerateFlaggedQuiz() {
+    this.quizState.setQuestions(this.allQuestions);
+    this.quizState.setValidatedQuestions(this.allQuestions);
+    this.quizState.setValidationResult(this.validationResult);
+
+    const defaultConfig: QuizConfig = {
+      mode: 'exam',
+      randomizeQuestions: true,
+      randomizeAnswers: true,
+      questionCount: 'flagged',
+      timerMinutes: null,
+      flaggedOnly: true
+    };
+
+    this.quizState.configureQuiz(defaultConfig);
+    this.quizState.startQuiz(true);
     this.router.navigate(['/quiz']);
   }
 

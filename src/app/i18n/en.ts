@@ -138,6 +138,8 @@ export const en = {
     studyTitle: 'Study Mode — Answer Key',
     studySubtitle: 'Browse all questions with correct answers and explanations',
     startQuizNow: 'Start Quiz Now',
+    startFlaggedQuiz: 'Start Exam with Flagged Questions',
+    flaggedQuestions: 'Flagged Questions',
     backToAnalysis: 'Back to Analysis',
     yourAnswer: 'Your Answer',
     correctAnswer: 'Correct Answer',

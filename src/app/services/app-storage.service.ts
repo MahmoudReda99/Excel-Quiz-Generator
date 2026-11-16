@@ -177,6 +177,30 @@ export class AppStorageService {
   }
 
   /**
+   * Update cached questions (with flags, etc.) for a saved file
+   */
+  async updateFileQuestions(fileName: string, questions: QuizQuestion[]): Promise<void> {
+    if (!fileName || !questions || questions.length === 0) return;
+    try {
+      const db = await this.getDB();
+      const tx = db.transaction(this.STORE_FILES, 'readwrite');
+      const store = tx.objectStore(this.STORE_FILES);
+      const req = store.getAll();
+
+      req.onsuccess = () => {
+        const records: SavedFileRecord[] = req.result || [];
+        const target = records.find(r => r.name === fileName || r.id === fileName);
+        if (target) {
+          target.questions = questions;
+          store.put(target);
+        }
+      };
+    } catch (err) {
+      console.warn('Could not update saved file questions:', err);
+    }
+  }
+
+  /**
    * Delete a saved file record
    */
   async deleteSavedFile(id: string): Promise<void> {

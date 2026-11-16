@@ -439,15 +439,23 @@ export class QuizStateService {
     return arr;
   }
 
-  startQuiz(): void {
+  startQuiz(flaggedOnly: boolean = false): void {
     const config = this.quizConfig$.value;
+    const isFlaggedOnly = flaggedOnly || config.flaggedOnly || config.questionCount === 'flagged';
     let pool = [...this.validatedQuestions$.value];
+
+    if (isFlaggedOnly) {
+      const flagged = pool.filter(q => !!q.isPending);
+      if (flagged.length > 0) {
+        pool = flagged;
+      }
+    }
 
     if (config.randomizeQuestions) {
       pool = this.shuffleArray(pool);
     }
 
-    if (config.questionCount !== 'all' && typeof config.questionCount === 'number') {
+    if (!isFlaggedOnly && config.questionCount !== 'all' && typeof config.questionCount === 'number') {
       pool = pool.slice(0, config.questionCount);
     }
 
@@ -505,26 +513,96 @@ export class QuizStateService {
 
   togglePending(questionIndex: number): void {
     const state = this.quizState$.value;
-    const questions = [...state.questions];
+    const questions = state.questions;
     if (questionIndex >= 0 && questionIndex < questions.length) {
-      const currentPending = !!questions[questionIndex].isPending;
-      questions[questionIndex] = {
-        ...questions[questionIndex],
-        isPending: !currentPending
-      };
-      this.quizState$.next({ ...state, questions });
+      this.toggleQuestionFlag(questions[questionIndex].id, questions[questionIndex].text);
     }
+  }
+
+  toggleQuestionFlag(questionId: string, questionText?: string): boolean {
+    let nowPending = false;
+    const cleanText = questionText ? questionText.trim() : '';
+    const matchesQuestion = (q: QuizQuestion) => {
+      if (questionId && q.id && q.id === questionId) return true;
+      if (cleanText && q.text && q.text.trim() === cleanText) return true;
+      return false;
+    };
+
+    // Determine target pending state
+    const currentQ = (this.quizState$.value?.questions || []).find(matchesQuestion) ||
+                     this.validatedQuestions$.value.find(matchesQuestion) ||
+                     (this.questions$.value || []).find(matchesQuestion);
+
+    nowPending = currentQ ? !currentQ.isPending : true;
+
+    // 1. Mutate and update in quizState$
+    const state = this.quizState$.value;
+    if (state && state.questions) {
+      state.questions.forEach(q => {
+        if (matchesQuestion(q)) {
+          q.isPending = nowPending;
+        }
+      });
+      const updatedStateQ = state.questions.map(q => {
+        if (matchesQuestion(q)) {
+          return { ...q, isPending: nowPending };
+        }
+        return q;
+      });
+      this.quizState$.next({ ...state, questions: updatedStateQ });
+    }
+
+    // 2. Mutate and update in validatedQuestions$
+    this.validatedQuestions$.value.forEach(q => {
+      if (matchesQuestion(q)) {
+        q.isPending = nowPending;
+      }
+    });
+    const updatedVal = this.validatedQuestions$.value.map(q => {
+      if (matchesQuestion(q)) {
+        return { ...q, isPending: nowPending };
+      }
+      return q;
+    });
+    this.setValidatedQuestions(updatedVal);
+
+    // 3. Mutate and update in questions$
+    this.questions$.value.forEach(q => {
+      if (matchesQuestion(q)) {
+        q.isPending = nowPending;
+      }
+    });
+    const updatedQuestions = this.questions$.value.map(q => {
+      if (matchesQuestion(q)) {
+        return { ...q, isPending: nowPending };
+      }
+      return q;
+    });
+    this.setQuestions(updatedQuestions);
+
+    // 4. Persist to active file in storage
+    const fileName = this.excelData$.value?.fileName || this.lastActiveFileName;
+    if (fileName) {
+      this.storageService.updateFileQuestions(fileName, updatedVal);
+    }
+
+    return nowPending;
+  }
+
+  getFlaggedCount(): number {
+    return this.validatedQuestions$.value.filter(q => !!q.isPending).length;
   }
 
   setPending(questionIndex: number, isPending: boolean): void {
     const state = this.quizState$.value;
     const questions = [...state.questions];
     if (questionIndex >= 0 && questionIndex < questions.length) {
-      questions[questionIndex] = {
-        ...questions[questionIndex],
-        isPending
-      };
-      this.quizState$.next({ ...state, questions });
+      const qId = questions[questionIndex].id;
+      const updatedStateQ = questions.map((q, idx) => idx === questionIndex ? { ...q, isPending } : q);
+      this.quizState$.next({ ...state, questions: updatedStateQ });
+
+      const updatedVal = this.validatedQuestions$.value.map(q => q.id === qId ? { ...q, isPending } : q);
+      this.setValidatedQuestions(updatedVal);
     }
   }
 

@@ -138,6 +138,8 @@ export const ar = {
     studyTitle: 'وضع المذاكرة — نموذج الإجابات',
     studySubtitle: 'تصفح جميع الأسئلة مع الإجابات الصحيحة والتفسير الشامل للمذاكرة والمراجعة',
     startQuizNow: 'بدء الاختبار الآن',
+    startFlaggedQuiz: 'بدء اختبار بالأسئلة المعلّمة',
+    flaggedQuestions: 'الأسئلة المعلّمة',
     backToAnalysis: 'العودة للتحليل',
     yourAnswer: 'إجابتك',
     correctAnswer: 'الإجابة الصحيحة',

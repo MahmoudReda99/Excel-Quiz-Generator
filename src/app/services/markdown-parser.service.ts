@@ -281,36 +281,63 @@ export class MarkdownParserService {
       if (!trimmed) return false;
       if (/^[\*\[\s]*\??\s*(?:تنبيه|هيبنت)/i.test(trimmed)) return false;
 
-      const sectionKeywords = [
-        'النموذج', 'النماذج', 'امتحان', 'اختبار', 'مادة', 'جمهورية', 'دليل', 'التصحيح',
-        'تعليمات', 'الفصل', 'الباب', 'الوحدة', 'قسم', 'تاريخ', 'المعتمدة',
-        'model', 'exam', 'quiz', 'chapter', 'unit', 'instructions', 'guide'
-      ];
-      const norm = trimmed.toLowerCase().replace(/[*_#\[\]\(\)]/g, ' ').replace(/\s+/g, ' ').trim();
-      if (sectionKeywords.some(kw => norm.startsWith(kw) || norm === kw)) {
+      // 1. Explicit markdown headings (# Title, ## Section, ### Subtitle)
+      if (/^#+\s+/i.test(trimmed)) {
+        const afterHash = trimmed.replace(/^#+\s*/, '').trim();
+        // If it starts with question markers (#### سؤال 1 or #### السؤال 1 :), it is a question header, not section header
+        if (/^(?:السؤال|سؤال|س|Q|Question)\s*\d+/i.test(afterHash)) {
+          return false;
+        }
         return true;
       }
-      if (/^#+\s+[^\d]+$/i.test(trimmed)) {
-        const afterHash = trimmed.replace(/^#+\s*/, '').trim();
-        if (!/^(?:السؤال|سؤال|س|Q|Question)/i.test(afterHash)) {
-          return true;
-        }
+
+      // 2. If we are currently inside a question waiting for question text or choices, a non-# line cannot be a section header
+      if (hasCurrentHeader && !currentQText && currentChoices.length === 0) {
+        return false;
       }
-      return false;
+
+      // 3. Standalone non-markdown section titles (must be short and match explicit section title patterns)
+      if (trimmed.length > 60 || /[؟\?\.]{2,}$/.test(trimmed)) {
+        return false;
+      }
+
+      const explicitSectionPatterns = [
+        /^(?:النموذج|نموذج|النماذج)\s*(?:رقم\s*)?\d*[:\s]*$/i,
+        /^(?:امتحان|اختبار)\s*(?:نصف|منتصف|نهاية|دور|شهر|فصل|مادة)?[:\s]/i,
+        /^(?:الفصل|الباب|الوحدة)\s*(?:الأول|الثاني|الثالث|الرابع|الخامس|السادس|السابع|الثامن|التاسع|العاشر|\d+)[:\s]/i,
+        /^(?:تعليمات|إرشادات)\s*(?:الامتحان|الاختبار|عامة)?[:\s]*$/i,
+        /^(?:chapter|unit)\s*\d+[:\s]/i,
+        /^(?:exam|quiz|model)\s*\d*[:\s]/i
+      ];
+
+      return explicitSectionPatterns.some(p => p.test(trimmed));
     };
 
     const saveCurrentQuestion = () => {
       let qTextClean = currentQText.trim();
 
-      // If no text, but we have choices or header, don't drop the question!
-      if (!qTextClean && (currentChoices.length > 0 || hasCurrentHeader)) {
+      // If no text, but we have choices, don't drop the question!
+      if (!qTextClean && currentChoices.length > 0) {
         qTextClean = currentHeaderTitle || `السؤال ${questions.length + 1}`;
       }
-      if (!qTextClean) return;
+      if (!qTextClean) {
+        currentQText = '';
+        currentChoices = [];
+        currentCorrectAnswers = [];
+        currentExplanation = null;
+        hasCurrentHeader = false;
+        currentHeaderTitle = '';
+        return;
+      }
 
       // Ignore intro/footer/section text that has no header AND no explicit choices
       if (!hasCurrentHeader && currentChoices.length === 0) {
         currentQText = '';
+        currentChoices = [];
+        currentCorrectAnswers = [];
+        currentExplanation = null;
+        hasCurrentHeader = false;
+        currentHeaderTitle = '';
         return;
       }
 

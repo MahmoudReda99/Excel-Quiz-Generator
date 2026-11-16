@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { QuizQuestion } from '../../models/quiz.model';
 import { TranslatePipe } from '../../pipes/translate.pipe';
@@ -10,27 +10,56 @@ import { AnswerNormalizerService } from '../../services/answer-normalizer.servic
   standalone: true,
   imports: [CommonModule, TranslatePipe, HighlightPipe],
   template: `
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 md:p-6 mb-6 transition-all hover:shadow-md" *ngIf="question">
+    <div 
+      class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 md:p-6 mb-6 transition-all hover:shadow-md" 
+      [class.ring-2]="question.isPending"
+      [class.ring-amber-400]="question.isPending"
+      [class.border-amber-300]="question.isPending"
+      [class.bg-amber-50]="question.isPending"
+      *ngIf="question">
       <div class="flex items-start justify-between gap-3 mb-4">
         <h3 class="text-lg md:text-xl font-bold text-gray-900 leading-relaxed">
           <span class="text-primary-600 me-2">Q{{ questionNumber }}.</span>
           <span [innerHTML]="question.text | highlight:searchQuery"></span>
         </h3>
         
-        <span class="px-3 py-1 rounded-full text-xs font-extrabold whitespace-nowrap flex-shrink-0"
-          [class.bg-emerald-100]="isCorrect"
-          [class.text-emerald-800]="isCorrect"
-          [class.border]="isCorrect"
-          [class.border-emerald-300]="isCorrect"
-          [class.bg-rose-100]="isIncorrect"
-          [class.text-rose-800]="isIncorrect"
-          [class.border-rose-300]="isIncorrect"
-          [class.bg-gray-100]="isUnanswered"
-          [class.text-gray-700]="isUnanswered">
-          <ng-container *ngIf="isCorrect">✓ {{ 'review.correct' | translate }}</ng-container>
-          <ng-container *ngIf="isIncorrect">✗ {{ 'review.incorrect' | translate }}</ng-container>
-          <ng-container *ngIf="isUnanswered">⊘ {{ 'review.unanswered' | translate }}</ng-container>
-        </span>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <!-- Flag / Bookmark Button -->
+          <button
+            type="button"
+            (click)="onFlagClick($event)"
+            class="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs select-none cursor-pointer"
+            [class.bg-amber-100]="question.isPending"
+            [class.text-amber-950]="question.isPending"
+            [class.border-amber-300]="question.isPending"
+            [class.ring-2]="question.isPending"
+            [class.ring-amber-300]="question.isPending"
+            [class.bg-gray-50]="!question.isPending"
+            [class.text-gray-600]="!question.isPending"
+            [class.border-gray-200]="!question.isPending"
+            [class.hover:bg-amber-50]="!question.isPending"
+            [class.hover:text-amber-800]="!question.isPending"
+            title="تمييز هذا السؤال للمراجعة والاختبار">
+            <span>{{ question.isPending ? '🚩' : '🏳️' }}</span>
+            <span>{{ question.isPending ? 'سؤال مميّز' : 'تمييز السؤال' }}</span>
+          </button>
+
+          <!-- Result Status Badge (Only shown when reviewing exam results, hidden in study mode) -->
+          <span *ngIf="!isStudyMode" class="px-3 py-1 rounded-full text-xs font-extrabold whitespace-nowrap flex-shrink-0"
+            [class.bg-emerald-100]="isCorrect"
+            [class.text-emerald-800]="isCorrect"
+            [class.border]="isCorrect"
+            [class.border-emerald-300]="isCorrect"
+            [class.bg-rose-100]="isIncorrect"
+            [class.text-rose-800]="isIncorrect"
+            [class.border-rose-300]="isIncorrect"
+            [class.bg-gray-100]="isUnanswered"
+            [class.text-gray-700]="isUnanswered">
+            <ng-container *ngIf="isCorrect">✓ {{ 'review.correct' | translate }}</ng-container>
+            <ng-container *ngIf="isIncorrect">✗ {{ 'review.incorrect' | translate }}</ng-container>
+            <ng-container *ngIf="isUnanswered">⊘ {{ 'review.unanswered' | translate }}</ng-container>
+          </span>
+        </div>
       </div>
 
       <div class="space-y-3 mb-4">
@@ -88,8 +117,19 @@ export class ReviewAnswerComponent {
   @Input() question!: QuizQuestion;
   @Input() questionNumber!: number;
   @Input() searchQuery: string = '';
+  @Input() isStudyMode: boolean = false;
+  @Output() toggleFlag = new EventEmitter<QuizQuestion>();
 
   constructor(private normalizer: AnswerNormalizerService) {}
+
+  onFlagClick(event: MouseEvent): void {
+    event.stopPropagation();
+    event.preventDefault();
+    if (this.question) {
+      this.question.isPending = !this.question.isPending;
+      this.toggleFlag.emit(this.question);
+    }
+  }
 
   getChoiceLabel(index: number): string {
     return String.fromCharCode(65 + index);
